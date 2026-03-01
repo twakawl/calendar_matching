@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Calendar Matching</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div id="health" title="health"></div>
+    <h1>Calendar Matching</h1>
+    <button class="btn" id="authA">Authenticate user A</button>
+    <button class="btn" id="authB">Authenticate user B</button>
+    <div id="emails"></div>
+
+    <div id="accountSelectors">
+        <h3>Choose accounts</h3>
+        <select id="selectA">
+            <option value="a">Account A</option>
+        </select>
+        <select id="selectB">
+            <option value="b">Account B</option>
+        </select>
+    </div>
+
+    <div id="prefs">
+        <h3>Availability Preferences (per day)</h3>
+        <table id="prefsTable">
+            <thead>
+                <tr>
+                    <th>Day</th>
+                    <th>Include</th>
+                    <th>From</th>
+                    <th>To</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Sun</td>
+                    <td><input type="checkbox" data-day="Sun"></td>
+                    <td><select class="start"></select></td>
+                    <td><select class="end"></select></td>
+                </tr>
+                <tr>
+                    <td>Mon</td>
+                    <td><input type="checkbox" data-day="Mon"></td>
+                    <td><select class="start"></select></td>
+                    <td><select class="end"></select></td>
+                </tr>
+                <tr>
+                    <td>Tue</td>
+                    <td><input type="checkbox" data-day="Tue"></td>
+                    <td><select class="start"></select></td>
+                    <td><select class="end"></select></td>
+                </tr>
+                <tr>
+                    <td>Wed</td>
+                    <td><input type="checkbox" data-day="Wed"></td>
+                    <td><select class="start"></select></td>
+                    <td><select class="end"></select></td>
+                </tr>
+                <tr>
+                    <td>Thu</td>
+                    <td><input type="checkbox" data-day="Thu"></td>
+                    <td><select class="start"></select></td>
+                    <td><select class="end"></select></td>
+                </tr>
+                <tr>
+                    <td>Fri</td>
+                    <td><input type="checkbox" data-day="Fri"></td>
+                    <td><select class="start"></select></td>
+                    <td><select class="end"></select></td>
+                </tr>
+                <tr>
+                    <td>Sat</td>
+                    <td><input type="checkbox" data-day="Sat"></td>
+                    <td><select class="start"></select></td>
+                    <td><select class="end"></select></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <button class="btn" id="toggleA">Show/hide calendar A</button>
+    <button class="btn" id="toggleB">Show/hide calendar B</button>
+    <button class="btn" id="findBtn">Find matching times</button>
+
+    <!-- Calendar Navigation & Display -->
+    <div id="calendarContainer" style="display:none;">
+        <div id="calendarNav">
+            <button class="navBtn" id="prevDay">← Previous</button>
+            <span id="currentDate" style="margin: 0 1rem; font-weight: bold;"></span>
+            <button class="navBtn" id="nextDay">Next →</button>
+        </div>
+
+        <div id="calendarGrid"></div>
+        <div id="suggestedSlots"></div>
+    </div>
+
+    <!-- Raw Data Display -->
+    <div id="overview"></div>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
