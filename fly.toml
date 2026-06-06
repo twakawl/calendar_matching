@@ -4,7 +4,7 @@
 #
 
 app = 'calendar-matching'
-primary_region = 'iad'
+primary_region = 'ams'
 
 [build]
 
@@ -17,7 +17,6 @@ primary_region = 'iad'
   processes = ['app']
 
 [[vm]]
-  memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
   memory_mb = 256
