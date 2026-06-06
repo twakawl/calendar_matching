@@ -1,0 +1,320 @@
+# Development Plan
+
+## Purpose
+
+This plan translates the documented product direction into a recommended build order for the Calendar Matching app. The goal is to reach a small, reliable MVP before expanding into calendar writes, advanced agenda views, Azure hardening, or Microsoft Calendar support.
+
+## Current repository assessment
+
+The repository is documentation-first. The product docs describe a login-protected app where users connect calendars, create meeting requests, compare availability, receive the best three options, optionally write proposed options to calendars, agree on a final option, and clean up unchosen app-created events.
+
+One important issue should be resolved before implementation: `README.md` describes a runnable FastAPI, SQLite, and Google OAuth implementation, while the repository guidance says no application source files, dependency manifests, database migrations, or automated tests are present yet. The first development task should be to align the README and repository contents so contributors have one clear source of truth.
+
+## Feature priority
+
+### 0. Align repository documentation and actual state
+
+Before adding features, decide whether the runnable app described in `README.md` is missing or whether the README is ahead of the repository.
+
+Actions:
+
+- If source files are intentionally absent, update `README.md` to describe the current documentation-first state.
+- Remove or clearly mark references to missing files such as `QUICKSTART.md`, `cloud_configuration.md`, `.env.example`, `app.py`, and `tests/test_verify_setup.py`.
+- If source files are unintentionally missing, restore the expected FastAPI app, configuration, tests, and setup docs.
+
+Why first:
+
+- It prevents contributors from following setup instructions that cannot work.
+- It clarifies whether the next work is greenfield implementation or restoration of an existing MVP.
+
+### 1. Build the application foundation
+
+Start with the smallest durable backend foundation. This should include the app skeleton, configuration, persistence boundaries, initial database schema, migrations, and authentication.
+
+Primary specs:
+
+- `docs/features/authentication.md`
+- `docs/features/storage-abstraction.md`
+- `docs/product-overview.md`
+- `docs/roadmap.md`
+
+Actions:
+
+- Choose and document the first implementation stack, preferably Python/FastAPI unless a new decision is made.
+- Create a clear Python package structure.
+- Add configuration loading for local development and future deployment.
+- Define domain models for users, calendar connections, meeting requests, participants, matching runs, proposed options, calendar event mappings, agreement decisions, and audit events.
+- Define repository or service interfaces so business logic does not depend on SQLite-specific code.
+- Add a local SQLite implementation.
+- Add migrations from the start.
+- Implement user registration/login/logout or the chosen external identity-provider flow.
+- Add authorization checks for agenda and meeting request access.
+
+Why now:
+
+- Authentication and storage are prerequisites for every private calendar, request, matching, and agreement workflow.
+- Provider and matching code will be easier to test if it is not coupled directly to a temporary database implementation.
+
+### 2. Implement Google Calendar read-only availability
+
+After users and storage exist, connect Google Calendar as the first calendar provider. Keep provider behavior behind an interface so Microsoft Calendar can be added later.
+
+Primary specs:
+
+- `docs/features/calendar-integrations.md`
+- `docs/features/privacy-anonymization.md`
+
+Actions:
+
+- Define a calendar-provider interface with responsibilities for authorization, callback completion, token refresh, busy interval reads, event creation, event finalization or replacement, and event deletion.
+- Implement the Google OAuth connection flow.
+- Store refresh-token metadata securely, with encryption or equivalent protection.
+- Fetch busy intervals for a relevant date range.
+- Normalize busy intervals to UTC internally.
+- Add disconnect and reconnect behavior.
+- Handle revoked or expired authorization with a clear reconnect path.
+- Ensure logs and responses do not expose another participant's calendar event details.
+
+Why now:
+
+- Read-only availability is lower risk than calendar writes.
+- It provides the real availability input needed by meeting requests and matching.
+
+### 3. Implement meeting request creation and invite links
+
+The meeting request is the core product object. Build it once users can connect calendars.
+
+Primary spec:
+
+- `docs/features/meeting-requests.md`
+
+Actions:
+
+- Add meeting request creation with title, notes, duration, date range, allowed weekdays, allowed time windows, and invited user email or share target.
+- Generate secure, hard-to-guess invite links.
+- Store only a token hash and expiration time for invite links.
+- Let invited users open links, authenticate, and accept or decline participation.
+- Track request statuses such as draft, sent, opened, awaiting calendar connection, ready to match, options proposed, agreed, disagreed, cancelled, and expired.
+- Add request lifecycle audit events.
+- Enforce that only the requester and invitee can view the request after authentication.
+
+Why now:
+
+- Matching needs request constraints and participant state.
+- Secure invite links are central to the user journey.
+
+### 4. Build the availability matching engine
+
+Implement matching as a pure, testable service. Inputs should be request constraints and busy intervals; outputs should be ranked proposed options.
+
+Primary spec:
+
+- `docs/features/availability-matching.md`
+
+Recommended MVP decisions:
+
+- Use 15-minute slot granularity unless product testing suggests otherwise.
+- Normalize matching calculations to UTC.
+- Preserve user timezones for display.
+- Treat all-day busy events as blocking the full day by default.
+- Use simple scoring first, such as earliest acceptable options.
+
+Actions:
+
+- Generate candidate slots from date range, allowed weekdays, allowed time windows, and duration.
+- Remove slots that overlap either participant's busy intervals.
+- Score remaining slots with simple MVP rules.
+- Return at most three non-overlapping options.
+- Clearly handle fewer-than-three and no-match outcomes.
+- Store matching runs and selected proposed options for traceability.
+- Add unit tests for weekdays, time windows, busy-overlap removal, fewer-than-three results, no-result behavior, all-day blocks, and timezone boundaries.
+
+Why now:
+
+- This is the app's core value proposition.
+- A pure matching engine can be tested without live calendar APIs.
+
+### 5. Add request detail and privacy-preserving agenda views
+
+Users need to review proposed options and understand availability constraints without seeing private details from another participant's calendar.
+
+Primary specs:
+
+- `docs/features/privacy-anonymization.md`
+- `docs/features/agenda-view.md`
+
+Actions:
+
+- Create a request detail view showing constraints, participant readiness, status, and proposed options.
+- Show the logged-in user's own calendar event details where needed.
+- Show the other participant only as anonymized busy blocks.
+- Hide titles, descriptions, locations, attendees, and calendar names from the other participant's events.
+- Visually distinguish normal calendar events, app-created proposed options, and final meetings.
+- Handle empty, loading, disconnected, and last-refreshed states.
+
+Why now:
+
+- Users should be able to evaluate matching results before the app writes anything to calendars.
+- This reinforces the privacy model before adding higher-risk write operations.
+
+### 6. Add calendar writes, agreement, and cleanup
+
+Only add writes after read-only availability, requests, matching, and review are stable. Calendar writes need careful tracking so the app deletes only events it created.
+
+Primary specs:
+
+- `docs/features/meeting-options-agreement.md`
+- write-related scope in `docs/features/calendar-integrations.md`
+
+Actions:
+
+- Add a deliberate user action to write proposed option holds to both users' calendars.
+- Track provider event IDs per request, participant, and proposed option.
+- Let participants agree, disagree, or choose a final option according to defined product rules.
+- Keep or create the final agreed calendar event.
+- Delete unchosen app-created option events from both calendars.
+- Preserve tracking data if a provider write or delete fails.
+- Expose recoverable states for partial cleanup failures.
+
+Why later:
+
+- Calendar writes can affect real user calendars.
+- Safe cleanup depends on storage, provider interfaces, request state, and option tracking already being correct.
+
+### 7. Harden the MVP and prepare for deployment
+
+After the core Google-based MVP works, improve reliability, test coverage, and deployment readiness.
+
+Primary specs:
+
+- `docs/roadmap.md`
+- `docs/features/storage-abstraction.md`
+- `docs/features/agenda-view.md`
+
+Actions:
+
+- Add automated tests for matching, authorization boundaries, request lifecycle transitions, provider abstractions, and calendar cleanup.
+- Add error handling for revoked permissions, stale data, expired links, and provider failures.
+- Add audit history for important state transitions.
+- Add CI for formatting, linting, migrations, and tests.
+- Document local SQLite setup and production-style SQL configuration.
+- Prepare configuration patterns for Azure deployment.
+
+Why now:
+
+- The app should be stable and observable before expanding provider support.
+
+### 8. Defer Microsoft Calendar until the Google MVP is proven
+
+Microsoft Calendar should be a future release after the provider interface has supported the full Google lifecycle.
+
+Actions:
+
+- Implement Microsoft authorization and callbacks behind the same provider interface.
+- Map Microsoft busy reads to the common busy-interval model.
+- Map Microsoft event writes and deletes to the common event lifecycle model.
+- Add cross-provider tests for Google-to-Microsoft and Microsoft-to-Google participants.
+
+Why last:
+
+- Multi-provider support is valuable, but it should not delay proving the product workflow.
+- A stable provider interface will reduce rework.
+
+## Recommended milestones
+
+### Milestone A: Repository alignment and foundation
+
+Deliverables:
+
+- Accurate README and setup documentation.
+- App skeleton.
+- Configuration loading.
+- Domain models.
+- Storage interfaces.
+- SQLite implementation.
+- Migration setup.
+
+### Milestone B: Authenticated local app
+
+Deliverables:
+
+- User registration or chosen login flow.
+- Login and logout.
+- Session management.
+- Authorization checks.
+- Basic user profile records.
+
+### Milestone C: Google read-only availability
+
+Deliverables:
+
+- Google OAuth connection.
+- Secure token storage.
+- Token refresh.
+- Busy interval fetches.
+- Disconnect and reconnect flows.
+- Privacy-safe availability responses.
+
+### Milestone D: Meeting request MVP
+
+Deliverables:
+
+- Request creation.
+- Secure expiring invite links.
+- Invitee login and participation flow.
+- Request status tracking.
+- Lifecycle audit events.
+
+### Milestone E: Matching MVP
+
+Deliverables:
+
+- Pure matching service.
+- Best-three option generation.
+- No-match handling.
+- Persisted matching runs.
+- Unit tests.
+
+### Milestone F: Review UI
+
+Deliverables:
+
+- Request detail view.
+- Proposed options display.
+- Own event details.
+- Other-user anonymized busy blocks.
+- Disconnected, loading, empty, and last-refreshed states.
+
+### Milestone G: Calendar writes and agreement
+
+Deliverables:
+
+- Send proposed options to calendars.
+- Store external event mappings.
+- Participant agreement flow.
+- Final option selection.
+- Cleanup of unchosen app-created events.
+- Recoverable partial-failure states.
+
+### Milestone H: Hardening and Azure readiness
+
+Deliverables:
+
+- Broader automated test coverage.
+- CI checks.
+- Audit improvements.
+- Robust provider error handling.
+- Local SQLite and Azure SQL-style configuration documentation.
+
+## Implementation guardrails
+
+- Keep business logic independent from concrete persistence implementations.
+- Keep calendar-provider logic behind interfaces.
+- Store timestamps in UTC.
+- Preserve display timezone information separately from matching calculations.
+- Store only the calendar data needed for matching and request display.
+- Never render another participant's event titles, descriptions, locations, attendees, or calendar names.
+- Encrypt or otherwise protect calendar tokens.
+- Track every app-created calendar event before attempting cleanup.
+- Do not write proposed options to calendars until a user intentionally triggers that action.
+- Add tests with every behavior-producing feature.
