@@ -18,6 +18,7 @@ The repository currently contains planning documentation plus a runnable FastAPI
 - `static/` — simple HTML/CSS/JavaScript frontend for authenticating two accounts and finding shared free slots.
 - `tests/test_verify_setup.py` — setup verification script for environment variables, dependencies, and database readiness.
 - `DEBUGGING_GUIDE.md` — manual debugging notes for OAuth, free/busy calls, and frontend behavior.
+- `planning.md` — current development plan, repository assessment, feature priority, recommended milestones, and implementation guardrails. Check this file before starting feature work to understand the next recommended task and current product state.
 - `docs/product-overview.md` — high-level product vision and user journey.
 - `docs/roadmap.md` — phased implementation roadmap.
 - `docs/features/*.md` — feature specifications for authentication, storage, calendar integrations, meeting requests, matching, agreement, agenda viewing, and privacy.
@@ -39,7 +40,7 @@ Build toward these major capabilities:
 
 - Treat this as an early-stage Python-oriented project.
 - Keep generated artifacts, virtual environments, local environment files, caches, build outputs, coverage output, and local SQLite databases out of version control, following `.gitignore`.
-- Read `docs/product-overview.md` and the relevant `docs/features/*.md` file before implementing a feature.
+- Read `planning.md` first when implementing a feature; it records the current feature set, build priority, milestones, next recommended task, and guardrails. Then read `docs/product-overview.md` and the relevant `docs/features/*.md` file before changing behavior.
 - If adding Python code, prefer a clear project structure and include dependency, formatting, linting, migration, and test configuration files.
 - Keep business logic independent from concrete persistence implementations so SQLite and Azure SQL support remain practical.
 - Keep calendar-provider logic behind interfaces so Google and Microsoft providers can share app workflows.
