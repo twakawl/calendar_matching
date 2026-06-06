@@ -6,6 +6,9 @@ __pycache__/
 # C extensions
 *.so
 
+# ENV file
+.env
+
 # Distribution / packaging
 .Python
 build/
@@ -136,6 +139,7 @@ celerybeat.pid
 
 # Environments
 .env
+.env.local
 .envrc
 .venv
 env/
@@ -143,6 +147,19 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Database files (local SQLite)
+*.db
+*.db-journal
+calendar.db
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
 
 # Spyder project settings
 .spyderproject

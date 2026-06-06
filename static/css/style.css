@@ -1,0 +1,207 @@
+body {
+    font-family: sans-serif;
+    margin: 2rem;
+}
+
+.btn {
+    padding: 10px 20px;
+    margin: 5px;
+    background: #28a745;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+}
+
+.btn:hover {
+    background: #218838;
+}
+
+#health {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+#emails {
+    margin-top: 1rem;
+}
+
+#overview {
+    margin-top: 2rem;
+}
+
+.busy {
+    color: red;
+}
+
+/* custom button color for viewing calendars */
+#viewBtn {
+    background: #007bff;
+    color: #fff;
+}
+
+#viewBtn:hover {
+    background: #0069d9;
+}
+
+#prefsTable {
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+#prefsTable th,
+#prefsTable td {
+    border: 1px solid #ccc;
+    padding: 4px 8px;
+}
+
+#prefsTable select {
+    width: 60px;
+}
+
+#accountSelectors {
+    margin-top: 1rem;
+}
+
+#toggleA,
+#toggleB,
+#findBtn {
+    background: #007bff;
+}
+
+#toggleA:hover,
+#toggleB:hover,
+#findBtn:hover {
+    background: #0069d9;
+}
+
+/* Calendar Grid Styling */
+#calendarContainer {
+    margin-top: 2rem;
+    border: 2px solid #333;
+    padding: 1rem;
+    background: #f9f9f9;
+}
+
+#calendarNav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.navBtn {
+    padding: 8px 16px;
+    background: #6c757d;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    margin: 0 0.5rem;
+}
+
+.navBtn:hover {
+    background: #5a6268;
+}
+
+#currentDate {
+    min-width: 200px;
+    text-align: center;
+    font-size: 1.1rem;
+}
+
+#calendarGrid {
+    display: grid;
+    gap: 0;
+    border: 1px solid #ddd;
+    background: white;
+    margin-bottom: 1rem;
+    width: 100%;
+    max-width: 100%;
+}
+
+.timeSlot {
+    border: 1px solid #e0e0e0;
+    padding: 4px 8px;
+    font-size: 0.85rem;
+    min-height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.timeLabel {
+    font-weight: bold;
+    background: #f5f5f5;
+    text-align: center;
+}
+
+.dayColumn {
+    border-right: 2px solid #ddd;
+}
+
+.dayColumnHeader {
+    font-weight: bold;
+    background: #e8f4f8;
+    padding: 8px;
+    text-align: center;
+    border-right: 2px solid #ddd;
+    border-bottom: 2px solid #ddd;
+}
+
+.timeColumnHeader {
+    font-weight: bold;
+    background: #e8f4f8;
+    text-align: center;
+    border-bottom: 2px solid #ddd;
+}
+
+.busyA {
+    background: #ffcccc;
+    border: 1px solid #ff6666;
+    color: #cc0000;
+    font-weight: bold;
+}
+
+.busyB {
+    background: #ccddff;
+    border: 1px solid #6699ff;
+    color: #0000cc;
+    font-weight: bold;
+}
+
+.busyBoth {
+    background: #9999ff;
+    border: 1px solid #3333cc;
+    color: white;
+    font-weight: bold;
+}
+
+.suggested {
+    background: #ccffcc;
+    border: 1px solid #66ff66;
+    color: #009900;
+    font-weight: bold;
+}
+
+#suggestedSlots {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #f0fff0;
+    border: 1px solid #66ff66;
+    border-radius: 4px;
+}
+
+#suggestedSlots h3 {
+    margin-top: 0;
+    color: #009900;
+}
+
+.suggestedItem {
+    padding: 0.5rem;
+    background: #e8ffe8;
+    border-left: 4px solid #66ff66;
+    margin: 0.5rem 0;
+}
