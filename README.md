@@ -55,7 +55,7 @@ The current app is still a prototype. Future work described in `docs/` includes:
 
 ## Google Cloud setup summary
 
-Create or select a Google Cloud project, enable the Google Calendar API, and configure an OAuth consent screen. Then create OAuth 2.0 credentials with application type `Web application`.
+Create or select a Google Cloud project, enable the Google Calendar API, and configure an OAuth consent screen. Then create OAuth 2.0 credentials with application type `Web application`. For this project, the Google app credentials can be edited in Google Cloud Console at <https://console.cloud.google.com/apis/credentials?project=calendar-matching>.
 
 Add this authorized redirect URI to the OAuth client:
 
