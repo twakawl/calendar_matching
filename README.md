@@ -9,7 +9,7 @@ The longer-term product direction is documented separately: authenticated users 
 This repository currently contains both planning documentation and a runnable prototype:
 
 - `app.py` — single-file FastAPI backend, OAuth callback handling, SQLite persistence, encrypted token storage, Google Calendar free/busy calls, and API endpoints.
-- `static/html/home.html`, `static/css/style.css`, and `static/js/app.js` — lightweight frontend for authenticating two accounts, choosing availability preferences, and viewing suggested free slots.
+- `static/html/*.html`, `static/css/style.css`, and `static/js/app.js` — Bootstrap-based prototype frontend pages for the landing page, login/account calendar connections, dashboard, request creation, invite landing, request detail, and privacy-safe availability preview.
 - `pyproject.toml` — Python package metadata and dependency list for `uv`.
 - `Dockerfile`, `fly.toml`, `requirements.txt`, and `.python-version` — Fly.io deployment settings for the hosted FastAPI service.
 - `.github/workflows/ci.yml` and `.github/workflows/deploy-fly.yml` — GitHub Actions CI and optional Fly.io CD workflows.
@@ -31,7 +31,7 @@ The setup instructions that are needed for the current prototype are included be
 - Google Calendar free/busy reads for primary calendars only; event titles, descriptions, attendees, and locations are not fetched.
 - Combined busy-block response for two connected accounts.
 - MVP matching endpoint that returns the top three non-overlapping meeting options from duration, weekday, allowed-hour, and busy-block constraints.
-- Simple frontend with two authenticate buttons, account selectors, meeting duration, weekday/hour availability preferences, calendar visibility toggles, and suggested free slots.
+- Bootstrap-based multi-page frontend with product-shaped landing, account/calendar connection cards, dashboard placeholders, request creation wizard placeholders, invite and request-detail placeholders, responsive availability preview, and live top-three matching cards backed by the existing Google free/busy prototype.
 - Automatic access-token refresh before Calendar API calls.
 
 ## Future implementation scope
@@ -131,10 +131,10 @@ Run the setup verifier:
 uv run python tests/test_verify_setup.py
 ```
 
-Run the deployment configuration regression test when changing Fly.io or Docker settings:
+Run the deployment, matching, and prototype UI regression tests when changing application behavior:
 
 ```bash
-python -m unittest tests.test_deployment_config
+uv run python -m unittest tests.test_matching_options tests.test_deployment_config tests.test_ui_routes
 ```
 
 Expected successful summary:
@@ -176,11 +176,11 @@ http://127.0.0.1:8000/redoc
 
 ## Basic usage
 
-1. Open `http://127.0.0.1:8000`.
-2. Click **Authenticate user A** and complete the Google OAuth consent flow.
-3. Click **Authenticate user B** and complete the flow for a second account.
-4. Select a meeting duration and weekday/hour availability preferences.
-5. Click **Find matching times** to fetch both calendars' busy blocks and show the top three matching slots.
+1. Open `http://127.0.0.1:8000` for the landing page.
+2. Open `/account` or `/login`, connect **Google Calendar · Slot A**, and complete the Google OAuth consent flow.
+3. Connect **Google Calendar · Slot B** and complete the second OAuth flow.
+4. Open `/requests/new`, fill or adjust the request placeholders for title, invitee, duration, date range, weekdays, and time window.
+5. Click **Find best options** to retrieve both calendars, compute the top three options, and render the privacy-safe availability preview.
 
 Direct OAuth start URLs are also available:
 
@@ -188,6 +188,18 @@ Direct OAuth start URLs are also available:
 http://127.0.0.1:8000/oauth/start?account_label=a
 http://127.0.0.1:8000/oauth/start?account_label=b
 ```
+
+## Prototype UI routes
+
+The current frontend implements the first UI milestone from `docs/ui-design-plan.md` as static Bootstrap pages with placeholders where backend request persistence and participant workflows will be added later:
+
+- `/` — landing page with privacy-first product explanation and primary actions.
+- `/login` and `/account` — Google Calendar connection cards for prototype slots A and B, plus a Microsoft Calendar placeholder.
+- `/dashboard` — grouped meeting request cards for needs-action, waiting, proposed, and agreed states.
+- `/requests/new` — request creation wizard-style form with title, invitee, duration, date range, weekday chips, time window, live matching button, top-three option cards, and secondary availability preview.
+- `/invite/demo-token` — invite landing page placeholder that explains the request and privacy behavior before connection.
+- `/requests/demo-request` — request detail placeholder with participant readiness, option cards, and agreement-state placeholders.
+- `/requests/demo-request/availability` — anonymized availability preview placeholder.
 
 ## API endpoints
 

@@ -402,13 +402,58 @@ async def health():
     return {"status": "healthy"}
 
 
+def _serve_html(filename: str) -> HTMLResponse:
+    """Serve a static HTML page from the prototype frontend directory."""
+    template_path = SysPath(__file__).parent / "static" / "html" / filename
+    return HTMLResponse(content=template_path.read_text(), status_code=200)
+
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Optional[str] = None):
-    """Serve the simple frontend page"""
-    # read the HTML template from disk
-    # the HTML lives under static/html now
-    template_path = SysPath(__file__).parent / "static" / "html" / "home.html"
-    return HTMLResponse(content=template_path.read_text(), status_code=200)
+    """Serve the product landing page."""
+    return _serve_html("home.html")
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page():
+    """Serve the login and calendar connection page."""
+    return _serve_html("login.html")
+
+
+@app.get("/account", response_class=HTMLResponse)
+async def account_page():
+    """Serve the account and calendar connection page."""
+    return _serve_html("account.html")
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard_page():
+    """Serve the meeting request dashboard placeholder page."""
+    return _serve_html("dashboard.html")
+
+
+@app.get("/requests/new", response_class=HTMLResponse)
+async def new_request_page():
+    """Serve the request creation and matching prototype page."""
+    return _serve_html("requests_new.html")
+
+
+@app.get("/invite/{token}", response_class=HTMLResponse)
+async def invite_page(token: str):
+    """Serve the invite landing page placeholder for a request token."""
+    return _serve_html("invite.html")
+
+
+@app.get("/requests/{request_id}", response_class=HTMLResponse)
+async def request_detail_page(request_id: str):
+    """Serve the request detail placeholder page."""
+    return _serve_html("request_detail.html")
+
+
+@app.get("/requests/{request_id}/availability", response_class=HTMLResponse)
+async def availability_page(request_id: str):
+    """Serve the privacy-safe availability preview placeholder page."""
+    return _serve_html("availability.html")
 
 
 @app.get("/oauth/start", tags=["OAuth"])

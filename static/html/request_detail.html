@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Request detail · Calendar Matching</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div id="health" title="API health"></div>
+    <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
+        <div class="container"><a class="navbar-brand fw-bold" href="/">Calendar Matching</a><div class="ms-auto d-flex gap-2"><a class="btn btn-outline-primary" href="/dashboard">Dashboard</a><a class="btn btn-primary" href="/requests/new">New request</a></div></div>
+    </nav>
+
+    <main class="container py-5">
+        <nav aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li><li class="breadcrumb-item active" aria-current="page">Product planning sync</li></ol></nav>
+        <div class="row g-4">
+            <section class="col-lg-8">
+                <div class="card shadow-sm rounded-5 mb-4">
+                    <div class="card-body p-4 p-lg-5">
+                        <div class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-3">
+                            <div><p class="text-uppercase small fw-semibold text-primary mb-1">Request detail</p><h1 class="fw-bold">Product planning sync</h1><p class="text-secondary mb-0">With invitee@example.com · 30 minutes · Jun 8–19, 2026</p></div>
+                            <span class="badge text-bg-warning align-self-start">Options proposed</span>
+                        </div>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6"><div class="participant-card"><span class="badge text-bg-success">Ready</span><h2 class="h6 mt-2">Requester</h2><p class="mb-0 text-secondary">Calendar connected</p></div></div>
+                            <div class="col-md-6"><div class="participant-card"><span class="badge text-bg-success">Ready</span><h2 class="h6 mt-2">Invitee</h2><p class="mb-0 text-secondary">Calendar connected</p></div></div>
+                        </div>
+                        <a href="/requests/new" class="btn btn-primary">Find best options with live calendars</a>
+                    </div>
+                </div>
+
+                <h2 class="h4 mb-3">Top three options</h2>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4"><div class="option-card card h-100 border-success"><div class="card-body"><span class="badge text-bg-success">Best option</span><h3 class="h5 mt-3">Tue, Jun 9</h3><p class="fs-5 fw-semibold">09:30–10:00</p><p class="text-secondary small">Both calendars are free and within preferred hours.</p><button class="btn btn-success w-100">Choose this option</button></div></div></div>
+                    <div class="col-md-4"><div class="option-card card h-100"><div class="card-body"><span class="badge text-bg-light">Option 2</span><h3 class="h5 mt-3">Wed, Jun 10</h3><p class="fs-5 fw-semibold">14:00–14:30</p><p class="text-secondary small">Both calendars are free.</p><button class="btn btn-outline-primary w-100">Choose this option</button></div></div></div>
+                    <div class="col-md-4"><div class="option-card card h-100"><div class="card-body"><span class="badge text-bg-light">Option 3</span><h3 class="h5 mt-3">Fri, Jun 12</h3><p class="fs-5 fw-semibold">11:00–11:30</p><p class="text-secondary small">Spread across days preference placeholder.</p><button class="btn btn-outline-primary w-100">Choose this option</button></div></div></div>
+                </div>
+
+                <div class="card shadow-sm rounded-4">
+                    <div class="card-body p-4">
+                        <h2 class="h4">Agreement state placeholders</h2>
+                        <div class="timeline-list">
+                            <div><span class="badge text-bg-light">Current</span> Options proposed, no final agreement yet.</div>
+                            <div>One participant selected an option placeholder.</div>
+                            <div>Different selections / rejected all / expired states will show recovery actions.</div>
+                            <div>Final agreed state will show calendar write and cleanup status.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <aside class="col-lg-4">
+                <div class="card shadow-sm rounded-4 mb-4"><div class="card-body p-4"><h2 class="h5">Request summary</h2><dl class="row small mb-0"><dt class="col-5">Title</dt><dd class="col-7">Product planning sync</dd><dt class="col-5">Timezone</dt><dd class="col-7">Browser / UTC placeholder</dd><dt class="col-5">Allowed days</dt><dd class="col-7">Mon–Fri</dd><dt class="col-5">Hours</dt><dd class="col-7">09:00–17:00</dd></dl></div></div>
+                <div class="privacy-note p-3 rounded-4 mb-4">🔒 Availability preview must label other-user events only as “Busy.”</div>
+                <a class="btn btn-outline-primary w-100" href="/requests/demo-request/availability">Open availability preview</a>
+            </aside>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
