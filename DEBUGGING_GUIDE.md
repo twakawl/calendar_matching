@@ -2,7 +2,7 @@
 
 ## Logging Overview
 
-The application now includes comprehensive logging at DEBUG and INFO levels to help diagnose issues with the `/freebusy/pair` endpoint.
+The application now includes comprehensive logging at DEBUG and INFO levels to help diagnose issues with the `/pair` endpoint.
 
 ### Backend Logging Points (app.py)
 
@@ -53,7 +53,7 @@ The application now includes comprehensive logging at DEBUG and INFO levels to h
 - Token refresh failed → Refresh token may have expired, re-authenticate
 - API call failed → Google API may be down or rate limited
 
-#### 4. Pair Free/Busy (/freebusy/pair)
+#### 4. Pair Free/Busy (/pair)
 
 - **Log Level**: INFO (entry), DEBUG/ERROR (details)
 - **Entry point**:
