@@ -19,7 +19,7 @@ body {
 #health {
     position: fixed;
     top: 10px;
-    right: 10px;
+    left: 10px;
     width: 12px;
     height: 12px;
     border-radius: 50%;
@@ -204,4 +204,80 @@ body {
     background: #e8ffe8;
     border-left: 4px solid #66ff66;
     margin: 0.5rem 0;
+}
+
+#appHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+#userMenu {
+    position: relative;
+    margin-left: auto;
+}
+
+#userMenu summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 999px;
+    background: #fff;
+}
+
+#userMenu summary::-webkit-details-marker {
+    display: none;
+}
+
+#userMenu[open] #logoutBtn {
+    position: absolute;
+    right: 0;
+    top: 2.4rem;
+    white-space: nowrap;
+    z-index: 2;
+}
+
+.loginPage {
+    min-height: 100vh;
+    margin: 0;
+    display: grid;
+    place-items: center;
+    background: #f3f6f8;
+}
+
+#loginCard {
+    width: min(100% - 2rem, 420px);
+    padding: 2rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+#loginCard input {
+    box-sizing: border-box;
+    display: block;
+    width: 100%;
+    margin: 0.35rem 0 1rem;
+    padding: 0.65rem;
+}
+
+.loginActions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.secondaryBtn {
+    background: #6c757d;
+}
+
+.secondaryBtn:hover {
+    background: #5a6268;
+}
+
+.errorText {
+    color: #b00020;
 }

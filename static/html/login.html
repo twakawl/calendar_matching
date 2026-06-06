@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Log in - Calendar Matching</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="loginPage">
+    <main id="loginCard">
+        <h1>Calendar Matching</h1>
+        <h2>Log in</h2>
+        <p id="loginStatus">Log in or create an account to continue.</p>
+        <label for="authEmail">Email</label>
+        <input id="authEmail" type="email" autocomplete="email" required>
+        <label for="authPassword">Password</label>
+        <input id="authPassword" type="password" autocomplete="current-password" required>
+        <label for="authDisplayName">Display name (registration only)</label>
+        <input id="authDisplayName" type="text" autocomplete="name">
+        <div class="loginActions">
+            <button class="btn" id="loginBtn">Log in</button>
+            <button class="btn secondaryBtn" id="registerBtn">Register</button>
+        </div>
+    </main>
+    <script src="/static/js/login.js"></script>
+</body>
+</html>
