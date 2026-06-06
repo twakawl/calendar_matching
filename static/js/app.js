@@ -102,7 +102,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function convertPrefsArray(arr) {
-        const days = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+        const days = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
         return (arr || [])
             .map((p) => ({
                 day: days[p.day],
@@ -147,7 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function renderSuggestedSlots() {
         const el = ensureSuggestedContainer();
 
-        let html = "<h3>Suggested meeting times (next 7 days)</h3>";
+        let html = "<h3>Top suggested meeting times (next 7 days)</h3>";
         if (!suggestedSlots || suggestedSlots.length === 0) {
             html += "<div class='suggestedItem'>No suggested slots found.</div>";
             el.innerHTML = html;
@@ -404,24 +404,41 @@ document.addEventListener("DOMContentLoaded", () => {
             busyDataB = data.account_b || { busy: [] };
             combinedBusy = data.combined_busy || [];
 
-            // Compute suggested free slots
-            suggestedSlots = [];
-            let last = nowISO;
+            const durationSelect = $("durationMinutes");
+            const durationMinutes = durationSelect ? Number(durationSelect.value) : 30;
+            const matchRes = await fetch("/matching/options", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    time_min: nowISO,
+                    time_max: laterISO,
+                    duration_minutes: durationMinutes,
+                    allowed_windows: userPrefs,
+                    max_options: 3,
+                }),
+            });
 
-            // Ensure combinedBusy sorted
-            combinedBusy
-                .slice()
-                .sort((x, y) => String(x.start).localeCompare(String(y.start)))
-                .forEach((b) => {
-                    if (b.start > last) suggestedSlots.push({ start: last, end: b.start });
-                    if (b.end > last) last = b.end;
-                });
+            if (matchRes.ok) {
+                const matchData = await matchRes.json();
+                suggestedSlots = matchData.options || [];
+            } else {
+                // Fallback to client-side free gaps if the matching endpoint is unavailable.
+                suggestedSlots = [];
+                let last = nowISO;
 
-            if (last < laterISO) suggestedSlots.push({ start: last, end: laterISO });
+                combinedBusy
+                    .slice()
+                    .sort((x, y) => String(x.start).localeCompare(String(y.start)))
+                    .forEach((b) => {
+                        if (b.start > last) suggestedSlots.push({ start: last, end: b.start });
+                        if (b.end > last) last = b.end;
+                    });
 
-            // Filter by preferences (if any)
-            if (userPrefs.length) {
-                suggestedSlots = suggestedSlots.filter((s) => inPref(s.start, userPrefs));
+                if (last < laterISO) suggestedSlots.push({ start: last, end: laterISO });
+
+                if (userPrefs.length) {
+                    suggestedSlots = suggestedSlots.filter((s) => inPref(s.start, userPrefs));
+                }
             }
 
             // Initialize calendar display

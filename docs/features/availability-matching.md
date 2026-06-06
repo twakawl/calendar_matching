@@ -23,6 +23,10 @@ The app finds the best three meeting moments using the meeting request preferenc
 5. Return the best three non-overlapping options.
 6. Store the matching run and selected options for traceability.
 
+## Current implementation
+
+The prototype now includes a pure matching service plus a `POST /matching/options` endpoint. The first scoring policy uses 15-minute slot granularity and deterministic earliest-slot ranking, then returns at most three non-overlapping options for the two connected Google account slots. Matching input supports duration, date range, and optional weekday/time windows. Persistent matching runs are still future work.
+
 ## User stories
 
 - As a requester, I receive three good meeting options when both calendars have availability.
@@ -36,11 +40,11 @@ The app finds the best three meeting moments using the meeting request preferenc
 - The engine returns at most three options.
 - If fewer than three slots are available, the app clearly shows the available count.
 - If no slots are available, the app explains that no match was found and allows the requester to adjust constraints.
-- Matching behavior is covered by unit tests once code exists.
+- Matching behavior is covered by unit tests for the current pure matching service.
 
 ## Open questions
 
-- Slot granularity: 5, 10, 15, or 30 minutes.
+- Slot granularity after product testing; the current MVP uses 15 minutes.
 - Whether travel or buffer time should be supported.
 - Whether requester preferences should rank earlier dates, morning/afternoon, or balanced distribution.
 - Whether all-day events should block the whole day by default.

@@ -30,7 +30,8 @@ The setup instructions that are needed for the current prototype are included be
 - SQLite-backed `google_accounts` table.
 - Google Calendar free/busy reads for primary calendars only; event titles, descriptions, attendees, and locations are not fetched.
 - Combined busy-block response for two connected accounts.
-- Simple frontend with two authenticate buttons, account selectors, weekday/hour availability preferences, calendar visibility toggles, and suggested free slots.
+- MVP matching endpoint that returns the top three non-overlapping meeting options from duration, weekday, allowed-hour, and busy-block constraints.
+- Simple frontend with two authenticate buttons, account selectors, meeting duration, weekday/hour availability preferences, calendar visibility toggles, and suggested free slots.
 - Automatic access-token refresh before Calendar API calls.
 
 ## Future implementation scope
@@ -173,8 +174,8 @@ http://127.0.0.1:8000/redoc
 1. Open `http://127.0.0.1:8000`.
 2. Click **Authenticate user A** and complete the Google OAuth consent flow.
 3. Click **Authenticate user B** and complete the flow for a second account.
-4. Select weekday/hour availability preferences.
-5. Click **Find matching times** to fetch both calendars' busy blocks and show suggested free slots.
+4. Select a meeting duration and weekday/hour availability preferences.
+5. Click **Find matching times** to fetch both calendars' busy blocks and show the top three matching slots.
 
 Direct OAuth start URLs are also available:
 
@@ -193,6 +194,7 @@ http://127.0.0.1:8000/oauth/start?account_label=b
 | `/oauth/callback` | GET | OAuth callback used by Google. |
 | `/freebusy/{account_label}` | GET | Free/busy response for one connected account. Requires `time_min` and `time_max`. |
 | `/pair` | GET | Combined free/busy response for both connected accounts. Requires `time_min` and `time_max`. |
+| `/matching/options` | POST | Returns up to three non-overlapping options for both connected calendars using `time_min`, `time_max`, `duration_minutes`, and optional weekday/time windows. |
 | `/accounts` | GET | Stored account metadata, without tokens. |
 | `/accounts/select` | POST | Prototype endpoint for marking an account selected in the UI. |
 
@@ -208,6 +210,24 @@ Example paired request:
 curl "http://127.0.0.1:8000/pair?time_min=2026-02-28T00:00:00Z&time_max=2026-03-10T00:00:00Z"
 ```
 
+Example matching request:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/matching/options" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "time_min": "2026-06-08T09:00:00Z",
+    "time_max": "2026-06-12T17:00:00Z",
+    "duration_minutes": 30,
+    "allowed_windows": [
+      {"day": 0, "start": "09:00", "end": "17:00"},
+      {"day": 1, "start": "09:00", "end": "17:00"}
+    ],
+    "max_options": 3
+  }'
+```
+
+`allowed_windows[].day` uses Python weekday numbering: Monday is `0` and Sunday is `6`.
 
 ## CI/CD and cloud hosting
 

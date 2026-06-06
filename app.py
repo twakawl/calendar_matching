@@ -15,7 +15,8 @@ import httpx
 from fastapi import FastAPI, HTTPException, Query, Path as FastAPIPath
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from matching import find_matching_options
 from sqlalchemy import create_engine, Column, String, DateTime
 from sqlalchemy.orm import declarative_base, Session, sessionmaker
 from cryptography.fernet import Fernet
@@ -345,6 +346,33 @@ class PairedFreeBusyResponse(BaseModel):
     account_a: FreeBusyResponse
     account_b: FreeBusyResponse
     combined_busy: list[BusyPeriod]
+
+
+class TimeWindow(BaseModel):
+    day: int
+    start: str
+    end: str
+
+
+class MatchingOptionsRequest(BaseModel):
+    time_min: str
+    time_max: str
+    duration_minutes: int = 30
+    allowed_windows: list[TimeWindow] = Field(default_factory=list)
+    max_options: int = 3
+
+
+class MeetingOption(BaseModel):
+    start: str
+    end: str
+    score: int
+    reason: str
+
+
+class MatchingOptionsResponse(BaseModel):
+    duration_minutes: int
+    slot_granularity_minutes: int
+    options: list[MeetingOption]
 
 
 # ============================================================================
@@ -686,6 +714,48 @@ async def get_freebusy_pair(
     except Exception as e:
         logger.error("Unhandled error in get_freebusy_pair", exc_info=e)
         raise
+    finally:
+        db.close()
+
+
+@app.post("/matching/options", response_model=MatchingOptionsResponse, tags=["Matching"])
+async def get_matching_options(request: MatchingOptionsRequest):
+    """Return the best meeting options for the two connected calendar accounts."""
+    db = SessionLocal()
+    try:
+        account_a = DatabaseService.get_account("a", db)
+        account_b = DatabaseService.get_account("b", db)
+        if not account_a or not account_b:
+            raise HTTPException(
+                status_code=404,
+                detail="Both account 'a' and 'b' must be configured before matching",
+            )
+
+        freebusy_a = await get_freebusy_account(
+            account_label="a", time_min=request.time_min, time_max=request.time_max
+        )
+        freebusy_b = await get_freebusy_account(
+            account_label="b", time_min=request.time_min, time_max=request.time_max
+        )
+        busy_periods = _merge_busy_periods(freebusy_a.busy + freebusy_b.busy)
+
+        matching_result = find_matching_options(
+            time_min=request.time_min,
+            time_max=request.time_max,
+            duration_minutes=request.duration_minutes,
+            busy_periods=busy_periods,
+            allowed_windows=request.allowed_windows,
+            max_options=request.max_options,
+        )
+        return MatchingOptionsResponse(
+            duration_minutes=matching_result.duration_minutes,
+            slot_granularity_minutes=matching_result.slot_granularity_minutes,
+            options=[
+                MeetingOption(**option.__dict__) for option in matching_result.options
+            ],
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     finally:
         db.close()
 
