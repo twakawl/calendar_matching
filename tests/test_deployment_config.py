@@ -24,6 +24,22 @@ class DeploymentConfigTest(unittest.TestCase):
         self.assertIn("--port ${PORT:-8080}", dockerfile)
         self.assertIn("internal_port = 8080", fly_toml)
 
+    def test_env_example_includes_fly_configuration(self):
+        """The environment template should include Fly.io deployment fields."""
+        env_example = (REPO_ROOT / ".env.example").read_text()
+
+        self.assertIn("# Fly.io configuration (if deploying there)", env_example)
+        self.assertIn("FLY_APP_NAME=", env_example)
+        self.assertIn("FLY_REGION=", env_example)
+        self.assertIn("FLY_SECRET_KEY=", env_example)
+
+    def test_google_redirect_uri_is_read_directly_from_environment(self):
+        """OAuth code should support explicit Google redirect URIs from env."""
+        app_py = (REPO_ROOT / "app.py").read_text()
+
+        self.assertIn('redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")', app_py)
+        self.assertIn("REDIRECT_URI = _resolve_redirect_uri()", app_py)
+
 
 if __name__ == "__main__":
     unittest.main()

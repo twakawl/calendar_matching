@@ -96,9 +96,14 @@ Hosted deployments can also set:
 PUBLIC_BASE_URL=https://your-fly-app.fly.dev
 GOOGLE_REDIRECT_URI=https://your-fly-app.fly.dev/oauth/callback
 PORT=8000
+
+# Fly.io configuration (if deploying there)
+FLY_APP_NAME=
+FLY_REGION=
+FLY_SECRET_KEY=
 ```
 
-`GOOGLE_REDIRECT_URI` is optional when `PUBLIC_BASE_URL` is set; the app derives `${PUBLIC_BASE_URL}/oauth/callback`.
+`GOOGLE_REDIRECT_URI` is read directly from the environment when set. If it is empty and `PUBLIC_BASE_URL` is set, the app derives `${PUBLIC_BASE_URL}/oauth/callback`; otherwise it falls back to `http://127.0.0.1:8000/oauth/callback`.
 
 Generate a Fernet key with:
 

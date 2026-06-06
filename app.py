@@ -38,11 +38,18 @@ ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", "")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./calendar.db")
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 
-REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "")
-if not REDIRECT_URI and PUBLIC_BASE_URL:
-    REDIRECT_URI = f"{PUBLIC_BASE_URL}/oauth/callback"
-if not REDIRECT_URI:
-    REDIRECT_URI = "http://127.0.0.1:8000/oauth/callback"
+
+def _resolve_redirect_uri() -> str:
+    """Resolve the Google OAuth callback URI for local or hosted deployments."""
+    redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
+    if redirect_uri and redirect_uri.strip():
+        return redirect_uri.strip()
+    if PUBLIC_BASE_URL:
+        return f"{PUBLIC_BASE_URL}/oauth/callback"
+    return "http://127.0.0.1:8000/oauth/callback"
+
+
+REDIRECT_URI = _resolve_redirect_uri()
 # include openid/email scopes so we can identify the user (sub + email)
 SCOPES = [
     "https://www.googleapis.com/auth/calendar.freebusy",
