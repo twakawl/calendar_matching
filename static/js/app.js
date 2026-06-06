@@ -51,6 +51,69 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(updateHealth, 5000);
     updateHealth();
 
+    function setSessionUi(user) {
+        const status = $("sessionStatus");
+        const form = $("authForm");
+        const logout = $("logoutBtn");
+        if (user) {
+            if (status) status.textContent = `Logged in as ${user.email}`;
+            if (form) form.style.display = "none";
+            if (logout) logout.style.display = "inline-block";
+        } else {
+            if (status) status.textContent = "Log in or register before connecting calendars.";
+            if (form) form.style.display = "block";
+            if (logout) logout.style.display = "none";
+        }
+    }
+
+    async function loadCurrentUser() {
+        const res = await fetch("/auth/me");
+        if (!res.ok) {
+            setSessionUi(null);
+            return null;
+        }
+        const user = await res.json();
+        setSessionUi(user);
+        return user;
+    }
+
+    async function submitAuth(mode) {
+        const email = $("authEmail")?.value || "";
+        const password = $("authPassword")?.value || "";
+        const displayName = $("authDisplayName")?.value || "";
+        const body = { email, password };
+        if (mode === "register") body.display_name = displayName;
+
+        const res = await fetch(`/auth/${mode}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+            const error = await res.json().catch(() => ({}));
+            alert(error.detail || "Authentication failed");
+            return;
+        }
+        const data = await res.json();
+        setSessionUi(data.user);
+        await loadAccounts();
+    }
+
+    const loginBtn = $("loginBtn");
+    if (loginBtn) loginBtn.onclick = () => submitAuth("login");
+
+    const registerBtn = $("registerBtn");
+    if (registerBtn) registerBtn.onclick = () => submitAuth("register");
+
+    const logoutBtn = $("logoutBtn");
+    if (logoutBtn) {
+        logoutBtn.onclick = async () => {
+            await fetch("/auth/logout", { method: "POST" });
+            setSessionUi(null);
+            accountsLoaded = 0;
+        };
+    }
+
     function showEmail(label, email) {
         const container = $("emails");
         if (!container) return;
@@ -291,6 +354,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function loadAccounts() {
         const res = await fetch("/accounts");
+        if (res.status === 401) {
+            setSessionUi(null);
+            return;
+        }
         if (!res.ok) return;
 
         const list = await res.json();
@@ -321,13 +388,12 @@ document.addEventListener("DOMContentLoaded", () => {
         // Save selection
         [selA, selB].forEach((sel) => {
             sel.onchange = () => {
-                fetch("/accounts/select", {
+                const params = new URLSearchParams({
+                    account_label: sel.value,
+                    selected_as: sel === selA ? "a" : "b",
+                });
+                fetch(`/accounts/select?${params.toString()}`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        account_label: sel.value,
-                        selected_as: sel === selA ? "a" : "b",
-                    }),
                 }).catch(() => { });
             };
         });
@@ -350,10 +416,22 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const authA = $("authA");
-    if (authA) authA.onclick = () => (window.location = "/oauth/start?account_label=a");
+    if (authA) {
+        authA.onclick = async () => {
+            const user = await loadCurrentUser();
+            if (!user) return alert("Log in before connecting calendar A");
+            window.location = "/oauth/start?account_label=a";
+        };
+    }
 
     const authB = $("authB");
-    if (authB) authB.onclick = () => (window.location = "/oauth/start?account_label=b");
+    if (authB) {
+        authB.onclick = async () => {
+            const user = await loadCurrentUser();
+            if (!user) return alert("Log in before connecting calendar B");
+            window.location = "/oauth/start?account_label=b";
+        };
+    }
 
     // Toggle columns (A/B) and re-render
     const toggleA = $("toggleA");
@@ -474,5 +552,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // -----------------------------
     populateTimeSelects();
     initAuthCallbackBanner();
-    loadAccounts().catch(() => { });
+    loadCurrentUser()
+        .then((user) => {
+            if (user) return loadAccounts();
+            return null;
+        })
+        .catch(() => setSessionUi(null));
 });

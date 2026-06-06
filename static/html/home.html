@@ -8,6 +8,20 @@
 <body>
     <div id="health" title="health"></div>
     <h1>Calendar Matching</h1>
+
+    <section id="authPanel">
+        <h2>App login</h2>
+        <p id="sessionStatus">Checking session...</p>
+        <div id="authForm">
+            <input id="authEmail" type="email" placeholder="Email">
+            <input id="authPassword" type="password" placeholder="Password (8+ characters)">
+            <input id="authDisplayName" type="text" placeholder="Display name for registration">
+            <button class="btn" id="loginBtn">Log in</button>
+            <button class="btn" id="registerBtn">Register</button>
+        </div>
+        <button class="btn" id="logoutBtn" style="display:none;">Log out</button>
+    </section>
+
     <button class="btn" id="authA">Authenticate user A</button>
     <button class="btn" id="authB">Authenticate user B</button>
     <div id="emails"></div>
