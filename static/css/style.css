@@ -29,6 +29,20 @@ body {
     margin-top: 1rem;
 }
 
+#authPanel {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid #ddd;
+    background: #f8f9fa;
+}
+
+#authForm input {
+    display: block;
+    width: min(100%, 320px);
+    margin: 0.4rem 0;
+    padding: 0.5rem;
+}
+
 #overview {
     margin-top: 2rem;
 }
