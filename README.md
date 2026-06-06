@@ -1,531 +1,270 @@
 # Calendar Matching
 
-Google Calendar free/busy data reader voor twee accounts via OAuth 2.0
+Calendar Matching is an early-stage FastAPI prototype for comparing two Google Calendars. It authenticates two Google accounts with OAuth 2.0, stores encrypted refresh tokens in SQLite, reads only Google Calendar free/busy data, and shows overlapping availability in a simple browser UI.
 
-## 🚀 Snel starten?
+The longer-term product direction is documented separately: authenticated users should eventually connect calendars, send meeting requests, and receive the best meeting options based on both users' availability and request preferences.
 
-**Lees [QUICKSTART.md](QUICKSTART.md) voor stap-voor-stap instructies!**
+## Current repository status
 
----
+This repository currently contains both planning documentation and a runnable prototype:
 
-Dit project leest **alleen** free/busy informatie uit twee Google Calendars (geen event details). Handig om overlappende drukke momenten te zien.
+- `app.py` — single-file FastAPI backend, OAuth callback handling, SQLite persistence, encrypted token storage, Google Calendar free/busy calls, and API endpoints.
+- `static/html/home.html`, `static/css/style.css`, and `static/js/app.js` — lightweight frontend for authenticating two accounts, choosing availability preferences, and viewing suggested free slots.
+- `pyproject.toml` — Python package metadata and dependency list for `uv`.
+- `.env.example` — environment-variable template for Google OAuth credentials, a Fernet key, and the optional database URL.
+- `tests/test_verify_setup.py` — setup verification script for environment variables, imports, and local database readiness.
+- `test.py` — manual helper script for printing local `google_accounts` rows.
+- `DEBUGGING_GUIDE.md` — manual troubleshooting notes for the current prototype.
+- `docs/` — product roadmap and feature specifications for future development.
 
-## Features
+The setup instructions that are needed for the current prototype are included below.
 
-✅ OAuth 2.0 Web Server Flow (offline)  
-✅ Veilige token opslag (geëncrypteerd met Fernet)  
-✅ SQLite database  
-✅ FastAPI backend  
-✅ Free/busy informatie voor primaire kalender  
-✅ Gecombineerde busy blokken voor twee accounts  
-✅ Automatische token refresh  
+## Implemented features
 
-## Installatie en Setup
+- OAuth 2.0 Web Server Flow for Google Calendar.
+- Offline access with refresh token storage.
+- Fernet encryption for stored refresh tokens.
+- SQLite-backed `google_accounts` table.
+- Google Calendar free/busy reads for primary calendars only; event titles, descriptions, attendees, and locations are not fetched.
+- Combined busy-block response for two connected accounts.
+- Simple frontend with two authenticate buttons, account selectors, weekday/hour availability preferences, calendar visibility toggles, and suggested free slots.
+- Automatic access-token refresh before Calendar API calls.
 
-### 1. Google Cloud Setup
+## Future implementation scope
 
-Volg de stappen in [cloud_configuration.md](cloud_configuration.md) om:
+The current app is still a prototype. Future work described in `docs/` includes:
 
-- Een Google Cloud project aan te maken
-- OAuth 2.0 credentials op te zetten
-- De encryption key te genereren
+- Login-protected first-party user accounts rather than only two local OAuth slots.
+- Storage abstraction that can support local SQLite and Azure SQL-style deployments.
+- Meeting request links between users.
+- Matching that returns the best three options based on request constraints and both agendas.
+- Calendar writes for proposed options, final agreement tracking, and cleanup of unchosen app-created events.
+- Microsoft Calendar support.
+- In-app agenda views with anonymized visibility into the other participant's busy blocks.
 
-**Dit moet je doen voordat je verdergaat!**
+## Prerequisites
 
-### 2. Environment variables
+- Python 3.10 or newer.
+- `uv` for dependency management.
+- A Google Cloud project with OAuth consent configured.
+- A Google OAuth 2.0 Web application client.
 
-1. Kopie `.env.example` naar `.env`:
+## Google Cloud setup summary
 
-   ```bash
-   cp .env.example .env
-   ```
+Create or select a Google Cloud project, enable the Google Calendar API, and configure an OAuth consent screen. Then create OAuth 2.0 credentials with application type `Web application`.
 
-2. Vul de drie waarden in die je van Google Cloud krijgt:
+Add this authorized redirect URI to the OAuth client:
 
-   ```env
-   GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
-   GOOGLE_CLIENT_SECRET=your_secret_here
-   ENCRYPTION_KEY=your_encryption_key_here
-   ```
+```text
+http://127.0.0.1:8000/oauth/callback
+```
 
-### 3. Dependencies installeren met uv
+The app requests these scopes:
 
-Eenmalig installeren:
+```text
+https://www.googleapis.com/auth/calendar.freebusy
+openid
+email
+```
+
+The Calendar scope is used only for free/busy reads. The OpenID/email scopes identify which Google account was connected.
+
+## Environment variables
+
+Copy the template and fill in your Google OAuth credentials plus a Fernet key:
+
+```bash
+cp .env.example .env
+```
+
+Required values:
+
+```env
+GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your_client_secret
+ENCRYPTION_KEY=your_fernet_key
+DATABASE_URL=sqlite:///./calendar.db
+```
+
+Generate a Fernet key with:
+
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+`DATABASE_URL` is optional. If omitted, the app uses `sqlite:///./calendar.db`.
+
+## Install dependencies
+
+Install all dependencies from `pyproject.toml`:
 
 ```bash
 uv sync
 ```
 
-Of individueel:
+If you are not using `uv`, install the same packages listed in `pyproject.toml` with your preferred Python package manager.
 
-```bash
-uv add fastapi uvicorn httpx sqlalchemy python-dotenv cryptography pydantic pydantic-settings
-```
+## Verify local setup
 
-Controleer je setup (optioneel):
+Run the setup verifier:
 
 ```bash
 uv run python tests/test_verify_setup.py
 ```
 
-Je ziet dan:
+Expected successful summary:
 
-```bash
-✅ Environment.... OK
-✅ Dependencies... OK
-✅ Database....... OK
+```text
+Environment............................. ✅ OK
+Dependencies............................ ✅ OK
+Database................................ ✅ OK
 ```
 
-## Gebruik
+The environment check fails until `.env` exists and contains valid-looking values. The script does not contact Google.
 
-### Backend starten
+## Run the app
+
+Start the FastAPI application:
 
 ```bash
-python app.py
+uv run python app.py
 ```
 
-De applicatie draait op `http://127.0.0.1:8000`
+Then open:
 
-Open je browser op de root (`/`) om de **frontend** te zien. De page toont:
+```text
+http://127.0.0.1:8000
+```
 
-- twee **authenticate** knoppen (A/B)
-- healthstatus (groen = ok, rood = error)
-- een dropdown listing connected accounts for each slot
-- een checklist of weekdays with hour‑range selectors to specify availability
-- buttons to toggle visibility of each calendar and to compute matching slots
+Interactive API documentation is available at:
 
-Na succesvol inloggen verschijnen de e‑mailadressen en de account selecties worden bijgewerkt.
+```text
+http://127.0.0.1:8000/docs
+http://127.0.0.1:8000/redoc
+```
 
-### OAuth Flow voor account A
+## Basic usage
 
-Klik op de knop of open direct:
+1. Open `http://127.0.0.1:8000`.
+2. Click **Authenticate user A** and complete the Google OAuth consent flow.
+3. Click **Authenticate user B** and complete the flow for a second account.
+4. Select weekday/hour availability preferences.
+5. Click **Find matching times** to fetch both calendars' busy blocks and show suggested free slots.
 
-```bash
+Direct OAuth start URLs are also available:
+
+```text
 http://127.0.0.1:8000/oauth/start?account_label=a
-```
-
-### Preferences
-
-Gebruik de tabel onder **Availability Preferences**:
-
-- Vink de dagen aan waarop je beschikbaar bent.
-- Kies voor elke dag een start- en einduur via de dropdowns.
-
-De geselecteerde tijden worden toegepast op beide accounts wanneer je op
-**Find matching times** klikt; slechts slots die binnen de voorkeuren van
-beide gebruikers vallen worden voorgesteld.
-
-Je wordt doorgestuurd naar Google zodra je op een authenticate knop klikt.
-Log in met je account; na autorisatie word je teruggezet naar `/oauth/callback`
-en de gegevens worden opgeslagen.
-
-### OAuth Flow voor account B
-
-Open in je browser:
-
-```bash
 http://127.0.0.1:8000/oauth/start?account_label=b
 ```
 
-Repeat met je tweede account.
+## API endpoints
 
-### Free/Busy data ophalen
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/api/health` | GET | JSON health check. |
+| `/` | GET | Frontend home page. |
+| `/oauth/start?account_label=a` | GET | Start Google OAuth for account slot `a` or `b`. |
+| `/oauth/callback` | GET | OAuth callback used by Google. |
+| `/freebusy/{account_label}` | GET | Free/busy response for one connected account. Requires `time_min` and `time_max`. |
+| `/pair` | GET | Combined free/busy response for both connected accounts. Requires `time_min` and `time_max`. |
+| `/accounts` | GET | Stored account metadata, without tokens. |
+| `/accounts/select` | POST | Prototype endpoint for marking an account selected in the UI. |
 
-Eenmaal beide accounts ingelogd:
-
-#### Één account
+Example one-account request:
 
 ```bash
 curl "http://127.0.0.1:8000/freebusy/a?time_min=2026-02-28T00:00:00Z&time_max=2026-03-10T00:00:00Z"
 ```
 
-Response:
-
-```json
-{
-  "account_label": "a",
-  "email": "user.a@gmail.com",
-  "busy": [
-    {
-      "start": "2026-02-28T10:00:00Z",
-      "end": "2026-02-28T11:00:00Z"
-    }
-  ]
-}
-```
-
-#### Beide accounts gecombineerd
+Example paired request:
 
 ```bash
-curl "http://127.0.0.1:8000/freebusy/pair?time_min=2026-02-28T00:00:00Z&time_max=2026-03-10T00:00:00Z"
+curl "http://127.0.0.1:8000/pair?time_min=2026-02-28T00:00:00Z&time_max=2026-03-10T00:00:00Z"
 ```
 
-Response:
+## Database schema
 
-```json
-{
-  "account_a": { /* ... */ },
-  "account_b": { /* ... */ },
-  "combined_busy": [
-    {
-      "start": "2026-02-28T09:30:00Z",
-      "end": "2026-02-28T11:30:00Z"
-    }
-  ]
-}
-```
+The prototype creates a local SQLite database by default. The `google_accounts` table contains:
 
-### Opgeslagen accounts checken
+| Column | Purpose |
+| --- | --- |
+| `account_label` | Primary key, currently `a` or `b`. |
+| `google_sub` | Unique Google account identifier. |
+| `email` | Connected Google account email address. |
+| `refresh_token` | Encrypted refresh token. |
+| `cached_busy` | JSON cache of recently fetched busy periods. |
+| `created_at` | Storage timestamp. |
+| `selected_as` | Prototype selection marker. |
 
-```bash
-curl http://127.0.0.1:8000/accounts
-```
+Local database files such as `calendar.db` are ignored by Git.
 
-## API Endpoints
+## Security notes
 
-| Endpoint | Methode | Beschrijving |
-| -------- | ------- | ------------ |
-| `/api/health` | GET | Health check (JSON) |
-| `/` | GET | Frontend home page with auth buttons |
-| `/oauth/start` | GET | Start OAuth flow (parameters: `account_label`) |
-| `/oauth/callback` | GET | OAuth callback (automatisch) |
-| `/freebusy/{account_label}` | GET | Free/busy voor één account (parameters: `time_min`, `time_max`) |
-| `/freebusy/pair` | GET | Free/busy voor beide accounts (parameters: `time_min`, `time_max`) |
-| `/accounts` | GET | Lijst alle opgeslagen accounts |
-
-## Databaseschema
-
-SQLite tabel `google_accounts`:
-
-```
-account_label (TEXT, primary key)  - 'a' of 'b'
-google_sub (TEXT, unique)           - Google account ID
-email (TEXT)                        - E-mailadres
-refresh_token (TEXT)                - Encrypted refresh token
-created_at (DATETIME)               - Moment van opslag
-```
-
-Tokens zijn encrypted met Fernet (symmetric encryption).
-
-## Beveiligingsmaatregelen
-
-1. **Refresh tokens versleuteld** - Gebruikt Fernet (symmetrische encryptie)
-2. **Geen gevoelige data gelogd** - Logging is clean
-3. **Minimale scopes** - `calendar.freebusy` plus `openid`/`email` to identify the user
-4. **Environment variables** - Secrets niet in code
-5. **OAuth offline** - Refresh tokens worden opgeslagen voor persistent access
-
-## Lokale testing
-
-1. (opt) Controleer setup: `python tests/test_verify_setup.py`
-2. Start de app: `python app.py`
-3. Open in je browser:
-   - OAuth flow a: `http://127.0.0.1:8000/oauth/start?account_label=a`
-   - OAuth flow b: `http://127.0.0.1:8000/oauth/start?account_label=b`
-4. Test endpoints:
-   - Health: `http://127.0.0.1:8000/`
-   - Docs: `http://127.0.0.1:8000/docs`
-   - Accounts: `http://127.0.0.1:8000/accounts`
-
-## Interactive API Documentation
-
-FastAPI genereert automatisch swagger docs:
-
-- OpenAPI docs: `http://127.0.0.1:8000/docs`
-- ReDoc: `http://127.0.0.1:8000/redoc`
+- Refresh tokens are encrypted with Fernet before storage.
+- Secrets are loaded from environment variables and should not be committed.
+- The Google Calendar scope is limited to `calendar.freebusy`.
+- The API returns busy time ranges only, not event details.
+- This is a local prototype and does not yet include production-grade user login, CSRF/session hardening, secret rotation, or multi-user tenancy controls.
 
 ## Troubleshooting
 
-### "ENCRYPTION_KEY environment variable not set"
+### `GOOGLE_CLIENT_ID environment variable not set`
 
-- Zorg dat je `.env` bestand exists en de key bevat
-- Verificeer met: `python -c "from dotenv import load_dotenv; load_dotenv(); import os; print(os.getenv('ENCRYPTION_KEY'))"`
+Create `.env` from `.env.example` and fill in `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `ENCRYPTION_KEY`.
 
-### "Refresh token not received"
+### `Invalid ENCRYPTION_KEY format`
 
-- Zie troubleshooting in [cloud_configuration.md](cloud_configuration.md#problemen-oplossen)
+Generate a new Fernet key:
 
-### Database is locked
-
-- Dit kan gebeuren als je multiple instances draait
-- Kill bestaande `python app.py` processen en restart
-
-### UNIQUE constraint failed on google_sub
-
-- Dit betekent dat een account werd opgeslagen zonder een Google ID (`sub`),
-  meestal doordat de juiste OpenID scopes ontbraken tijdens de OAuth flow.
-- Zorg dat de autorisatieschermen de extra scopes `openid` en `email` tonen.
-- Je kunt de fout oplossen door de lege rij te verwijderen of het database
-  bestand te verwijderen (`rm calendar.db`) en opnieuw te starten. De applicatie
-  zal lege records automatisch opruimen bij de volgende login.
-
-## Structuur
-
+```bash
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
+
+### `Refresh token not received`
+
+Google may not return a refresh token if the account has already approved the app. Revoke the app grant in the Google Account security settings, then authenticate again. Make sure the authorization request uses offline access and prompt consent; `app.py` is configured to request both.
+
+### `Database is locked`
+
+Stop duplicate local app processes, then start one instance again:
+
+```bash
+uv run python app.py
+```
+
+### `UNIQUE constraint failed on google_sub`
+
+This usually means an old local database row conflicts with a newly connected Google account. For local development, stop the app and remove `calendar.db`, then authenticate both accounts again.
+
+## Repository structure
+
+```text
 calendar_matching/
-├── app.py                    # FastAPI app met alle logic
-├── pyproject.toml            # Dependencies
-├── .env.example              # Environment variables template
-├── .env                      # (Local) Environment variables
-├── calendar.db               # SQLite database (gegenereerd)
-├── static/                   # Frontend assets
-│   ├── css/
-│   ├── js/
-│   └── html/                # HTML template(s) for home page
-├── README.md                 # Deze file
-└── cloud_configuration.md    # Google Cloud setup guide
+├── .env.example
+├── .gitignore
+├── AGENTS.md
+├── DEBUGGING_GUIDE.md
+├── README.md
+├── app.py
+├── docs/
+│   ├── product-overview.md
+│   ├── roadmap.md
+│   └── features/
+├── pyproject.toml
+├── static/
+│   ├── css/style.css
+│   ├── html/home.html
+│   └── js/app.js
+├── test.py
+└── tests/
+    ├── __init__.py
+    └── test_verify_setup.py
 ```
 
-## Code organisatie
-
-De `app.py` is gestructureerd in secties:
-
-1. **Configuration** - Laadt env vars, validering
-2. **Database** - SQLAlchemy models en engine
-3. **Token Encryption** - Fernet encryption/decryption
-4. **OAuth Flow** - Google OAuth 2.0 logic
-5. **Google Calendar Client** - Calendar API calls
-6. **Database Operations** - CRUD operations
-7. **Response Models** - Pydantic schemas
-8. **FastAPI Application** - Endpoints
-9. **Helper Functions** - Utility functions (merging busy periods)
-
-## Volgende stappen (optioneel)
-
-- [ ] Frontend maken (React/Vue) voor mooiere UI
-- [ ] Batch free/busy requests voor meer dan 2 accounts
-- [ ] Meeting suggestion API (gebaseerd op overlap)
-- [ ] Postgres i.p.v. SQLite voor productie
-- [ ] Docker container voor deployment
-
-## Licentie
-
-Open source - vrij te gebruiken.
-
-## Contact
-
-Voor vragen of issues, check Google Cloud Docs: <https://developers.google.com/calendar>
-
-# 📋 Project Complete: Google Calendar Free/Busy Backend
-
-## ✅ What You Get
-
-Een volledig werkende **FastAPI backend applicatie** waarmee je:
-
-- ✅ Twee Google-accounts inlogt via OAuth 2.0
-- ✅ Free/busy informatie uitleest (GEEN event details)
-- ✅ Tokens veilig encrypted opslaat in SQLite
-- ✅ Automatische token refresh
-- ✅ Combined free/busy data van beide accounts krijgt
-
-## 📂 File Structure
-
-```
-calendar_matching/
-├── app.py                  # 🔥 De volledige FastAPI applicatie
-├── static/                 # Frontend assets
-│   ├── css/
-│   ├── js/
-│   └── html/               # home.html template
-├── pyproject.toml          # Python dependencies
-├── .env.example            # Template voor environment variables
-├── .gitignore              # Git config (secrets niet opslaan!)
-│
-├── SETUP.md                # 👈 LES EERST DIT
-├── QUICKSTART.md           # Stap-voor-stap guide
-├── README.md               # Volledige documentatie
-├── cloud_configuration.md  # Google Cloud setup (zeer gedetailleerd!)
-├── tests/                  # kleine test en helper scripts
-│   └── test_verify_setup.py # Verificatie script
-```
-
-## 🚀 Hoe Starten (snel)
-
-### 1. Initiële setup (eenmalig)
-
-```bash
-cd calendar_matching
-cp .env.example .env
-uv sync
-```
-
-### 2. Google Cloud configuratie (10 min)
-
-Volg: [cloud_configuration.md](cloud_configuration.md)
-
-Kopie je credentials naar `.env`:
-
-```env
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...  
-ENCRYPTION_KEY=...
-```
-
-### 3. Verificatie
-
-```bash
-uv run python tests/test_verify_setup.py
-```
-
-### 4. Backend starten
-
-```bash
-python app.py
-```
-
-### 5. Beide accounts inloggen (browser)
-
-- Account A: `http://127.0.0.1:8000/oauth/start?account_label=a`
-- Account B: `http://127.0.0.1:8000/oauth/start?account_label=b`
-
-### 6. API testen
-
-```bash
-curl "http://127.0.0.1:8000/freebusy/pair?time_min=2026-02-28T00:00:00Z&time_max=2026-03-10T00:00:00Z" | jq
-```
-
-✅ Done!
-
----
-
-## 📚 Documentatie
-
-| Document | Doel | Leestijd |
-| -------- | ---- | --------- |
-| [SETUP.md](SETUP.md) | **Start hier** - Stap voor stap | 5 min |
-| [QUICKSTART.md](QUICKSTART.md) | Snelle walkthrough | 10 min |
-| [README.md](README.md) | Complete reference | 15 min |
-| [cloud_configuration.md](cloud_configuration.md) | Google Cloud gedetailleerd | 20 min |
-
----
-
-## 🔑 Key Features
-
-### Endpoints
-
-```
-GET  /                              • Health check
-GET  /oauth/start?account_label=a   • OAuth consent screen
-GET  /oauth/callback                • OAuth callback (auto)
-GET  /freebusy/{label}              • Busy times voor 1 account
-GET  /freebusy/pair                 • Busy times voor beide accounts
-GET  /accounts                      • Opgeslagen accounts lijst
-GET  /docs                          • Interactive API docs (Swagger)
-```
-
-### Database
-
-SQLite tabel `google_accounts`:
-
-```
-account_label (TEXT pk)   - 'a' of 'b'
-google_sub (TEXT unique)  - Google ID  
-email (TEXT)              - E-mailadres
-refresh_token (TEXT)      - Encrypted!
-created_at (DATETIME)     - Toggle
-```
-
-### Security
-
-- ✅ Refresh tokens encrypted met Fernet
-- ✅ Secrets in environment variables
-- ✅ Minimal scopes: `calendar.freebusy`, `openid`, `email` (used only for user id)
-- ✅ Geen gevoelige data gelogd
-
----
-
-## 🛠️ Tech Stack
-
-| Package | Versie | Doel |
-|---------|--------|------|
-| **FastAPI** | 0.115.2 | Web framework |
-| **Uvicorn** | 0.31.0 | ASGI server |
-| **SQLAlchemy** | 2.0.35 | Database ORM |
-| **HTTPx** | 0.28.1 | HTTP client |
-| **Cryptography** | 44.0.0 | Token encryption |
-| **Pydantic** | 2.11.1 | Data validation |
-| **Python-dotenv** | 1.0.1 | Env var loader |
-
----
-
-## 📋 Checklist: Eerste Keer Setup
-
-- [ ] Read [SETUP.md](SETUP.md)
-- [ ] Run `cp .env.example .env`
-- [ ] Complete Google Cloud setup ([cloud_configuration.md](cloud_configuration.md))
-- [ ] Run `uv sync`
-- [ ] Run `uv run python tests/test_verify_setup.py`
-- [ ] Run `python app.py`
-- [ ] Visit `http://127.0.0.1:8000/oauth/start?account_label=a`
-- [ ] Visit `http://127.0.0.1:8000/oauth/start?account_label=b`
-- [ ] Test `/freebusy/pair` endpoint
-
----
-
-## 🆘 Help
-
-### I don't know where to start
-
-→ Read [SETUP.md](SETUP.md) first (5 min)
-
-### Google Cloud setup confuses me
-
-→ Follow [cloud_configuration.md](cloud_configuration.md) step-by-step with screenshots
-
-### Something broke
-
-→ Run `uv run python tests/test_verify_setup.py` to diagnose
-
-### I want to test the API quickly
-
-→ Open `http://127.0.0.1:8000/docs` in browser (built-in Swagger UI)
-
----
-
-## 💡 What's Next?
-
-### Expand functionality
-
-- [ ] Add 3+ accounts (change "a"/"b" logic)
-- [ ] Add time range presets (today, this week, custom)
-- [ ] Add meeting suggestions (find open slots)  
-- [ ] Add email notifications
-
-### Productionize
-
-- [ ] Move from SQLite to PostgreSQL
-- [ ] Add Docker container
-- [ ] Deploy to Cloud Run / Heroku
-- [ ] Add HTTPS
-- [ ] Add CORS for frontend
-
-### Build frontend
-
-- [ ] React / Vue.js dashboard
-- [ ] Calendar visualizer
-- [ ] Meeting scheduler
-
----
-
-## 📝 Notes
-
-- **Tokens**: Encrypted in database. Safe to commit (database yes, keys no!)
-- **Scopes**: `calendar.freebusy` plus `openid`/`email` for identification. Event details are still never accessed.
-- **Offline mode**: Refresh tokens work indefinitely (until revoked)
-- **Free tier**: Google Calendar API free tier: 1M queries/day
-
----
-
-## 🎯 Remember
-
-1. **Start with SETUP.md** if you're new
-2. **Google Cloud config is critical** - don't skip it!
-3. **Both accounts need to authorize** (two OAuth flows)
-4. **Tokens expire** but refresh automatically
-5. **Secrets in .env** - never commit!
-
----
-
-**Build date**: Feb 28, 2026  
-**Python version**: 3.10+  
-**Status**: ✅ Production ready (but test first!)
+## Development notes
+
+- Keep business logic independent from concrete persistence implementations as the app evolves.
+- Keep calendar-provider logic behind interfaces when adding Microsoft Calendar support.
+- Update this README and the relevant `docs/features/*.md` file when changing product behavior.
+- Add automated tests when adding application behavior; the current test file is a setup verifier, not a full test suite.

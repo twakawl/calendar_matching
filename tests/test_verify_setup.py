@@ -38,7 +38,7 @@ def check_env():
     if missing:
         print(f"\n   💡 Edit .env and fill in these values:")
         print(f"      {', '.join(missing)}")
-        print(f"   📖 See cloud_configuration.md for instructions")
+        print(f"   📖 See README.md for Google Cloud and environment setup instructions")
         return False
     
     return True
