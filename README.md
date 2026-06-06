@@ -125,6 +125,12 @@ Run the setup verifier:
 uv run python tests/test_verify_setup.py
 ```
 
+Run the deployment configuration regression test when changing Fly.io or Docker settings:
+
+```bash
+python -m unittest tests.test_deployment_config
+```
+
 Expected successful summary:
 
 ```text
@@ -146,7 +152,7 @@ uv run python app.py
 The hosted Docker command used by Fly.io is:
 
 ```bash
-uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000}
+uvicorn app:app --host 0.0.0.0 --port ${PORT:-8080}
 ```
 
 Then open:
@@ -208,7 +214,7 @@ curl "http://127.0.0.1:8000/pair?time_min=2026-02-28T00:00:00Z&time_max=2026-03-
 Fly.io is the first documented hosting target for this prototype. The deployment support includes:
 
 - `Dockerfile` with the hosted `uvicorn` command.
-- `fly.toml` with Fly.io app, build, service, and health-check settings.
+- `fly.toml` with Fly.io app, build, and service settings.
 - `requirements.txt` for Docker image dependency installation.
 - `.python-version` to pin Python `3.12.13` for CI/local tooling.
 - `.github/workflows/ci.yml` to run the setup verifier on pushes and pull requests.
@@ -302,6 +308,7 @@ calendar_matching/
 ├── test.py
 └── tests/
     ├── __init__.py
+    ├── test_deployment_config.py
     └── test_verify_setup.py
 ```
 

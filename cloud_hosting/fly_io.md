@@ -6,8 +6,8 @@ Fly deploys from the project source directory with `fly deploy`. The command rea
 
 ## What is included in this repository
 
-- `Dockerfile` builds the FastAPI app image from `python:3.12-slim` and starts Uvicorn on `0.0.0.0`.
-- `fly.toml` defines the Fly app configuration, Dockerfile build, HTTP service, and `/api/health` health check.
+- `Dockerfile` builds the FastAPI app image from `python:3.10-slim` and starts Uvicorn on `0.0.0.0:8080`.
+- `fly.toml` defines the Fly app configuration, Dockerfile build, and HTTP service on internal port `8080`.
 - `.github/workflows/ci.yml` runs the existing setup verifier on pushes and pull requests.
 - `.github/workflows/deploy-fly.yml` optionally deploys to Fly.io from GitHub Actions.
 - `requirements.txt` mirrors `pyproject.toml` dependencies for the Docker image build.
@@ -147,7 +147,7 @@ https://<your-fly-app>.fly.dev/
 ## 9. Troubleshooting
 
 - **OAuth redirect mismatch**: confirm `PUBLIC_BASE_URL` or `GOOGLE_REDIRECT_URI` matches the Google Cloud authorized redirect URI exactly.
-- **No open port or unhealthy service**: confirm the Docker command binds `0.0.0.0` and uses port `8000` or `$PORT`.
+- **No open port or unhealthy service**: confirm the Docker command starts `uvicorn`, binds `0.0.0.0`, and uses Fly.io internal port `8080` (or `$PORT` when provided).
 - **Token decryption failures after redeploy**: confirm `ENCRYPTION_KEY` did not change.
 - **Lost connected accounts**: confirm `DATABASE_URL` points to durable hosted storage, not the Machine filesystem.
 - **Wrong app deployed**: confirm the `app` value in `fly.toml`, or deploy with `fly deploy -a <app-name>`.
