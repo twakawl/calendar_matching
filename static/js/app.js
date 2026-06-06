@@ -51,19 +51,18 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(updateHealth, 5000);
     updateHealth();
 
+    function userDisplayName(user) {
+        return user.display_name || user.email;
+    }
+
     function setSessionUi(user) {
-        const status = $("sessionStatus");
-        const form = $("authForm");
-        const logout = $("logoutBtn");
-        if (user) {
-            if (status) status.textContent = `Logged in as ${user.email}`;
-            if (form) form.style.display = "none";
-            if (logout) logout.style.display = "inline-block";
-        } else {
-            if (status) status.textContent = "Log in or register before connecting calendars.";
-            if (form) form.style.display = "block";
-            if (logout) logout.style.display = "none";
+        if (!user) {
+            window.location.replace("/login");
+            return;
         }
+
+        const menuName = $("userMenuName");
+        if (menuName) menuName.textContent = userDisplayName(user);
     }
 
     async function loadCurrentUser() {
@@ -77,40 +76,11 @@ document.addEventListener("DOMContentLoaded", () => {
         return user;
     }
 
-    async function submitAuth(mode) {
-        const email = $("authEmail")?.value || "";
-        const password = $("authPassword")?.value || "";
-        const displayName = $("authDisplayName")?.value || "";
-        const body = { email, password };
-        if (mode === "register") body.display_name = displayName;
-
-        const res = await fetch(`/auth/${mode}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-        });
-        if (!res.ok) {
-            const error = await res.json().catch(() => ({}));
-            alert(error.detail || "Authentication failed");
-            return;
-        }
-        const data = await res.json();
-        setSessionUi(data.user);
-        await loadAccounts();
-    }
-
-    const loginBtn = $("loginBtn");
-    if (loginBtn) loginBtn.onclick = () => submitAuth("login");
-
-    const registerBtn = $("registerBtn");
-    if (registerBtn) registerBtn.onclick = () => submitAuth("register");
-
     const logoutBtn = $("logoutBtn");
     if (logoutBtn) {
         logoutBtn.onclick = async () => {
             await fetch("/auth/logout", { method: "POST" });
-            setSessionUi(null);
-            accountsLoaded = 0;
+            window.location.replace("/login");
         };
     }
 
@@ -355,7 +325,7 @@ document.addEventListener("DOMContentLoaded", () => {
     async function loadAccounts() {
         const res = await fetch("/accounts");
         if (res.status === 401) {
-            setSessionUi(null);
+            window.location.replace("/login");
             return;
         }
         if (!res.ok) return;

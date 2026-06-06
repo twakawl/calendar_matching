@@ -65,6 +65,37 @@ class AuthenticationApiTest(unittest.TestCase):
         )
         self.assertEqual(after_logout.status_code, 401)
 
+
+    def test_home_redirects_to_login_when_unauthenticated(self):
+        response = self.client.get("/", follow_redirects=False)
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(response.headers["location"], "/login")
+
+        login_page = self.client.get("/login")
+        self.assertEqual(login_page.status_code, 200)
+        self.assertIn("Log in", login_page.text)
+        self.assertNotIn("Authenticate user A", login_page.text)
+
+    def test_logged_in_user_sees_app_shell_and_menu_not_login_page(self):
+        self.client.post(
+            "/auth/register",
+            json={
+                "email": self.email,
+                "password": self.password,
+                "display_name": "Menu User",
+            },
+        )
+
+        login_redirect = self.client.get("/login", follow_redirects=False)
+        self.assertEqual(login_redirect.status_code, 303)
+        self.assertEqual(login_redirect.headers["location"], "/")
+
+        home = self.client.get("/")
+        self.assertEqual(home.status_code, 200)
+        self.assertIn("userMenuName", home.text)
+        self.assertIn("Authenticate user A", home.text)
+        self.assertNotIn("authEmail", home.text)
+
     def test_calendar_accounts_require_authentication(self):
         response = self.client.get("/accounts")
         self.assertEqual(response.status_code, 401)

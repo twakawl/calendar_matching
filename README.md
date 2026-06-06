@@ -9,7 +9,7 @@ The longer-term product direction is documented separately: authenticated users 
 This repository currently contains both planning documentation and a runnable prototype:
 
 - `app.py` — single-file FastAPI backend, first-party auth/session handling, OAuth callback handling, SQLite persistence, encrypted token storage, Google Calendar free/busy calls, and API endpoints.
-- `static/html/home.html`, `static/css/style.css`, and `static/js/app.js` — lightweight frontend for app login, authenticating two calendar slots, choosing availability preferences, and viewing suggested free slots.
+- `static/html/home.html`, `static/html/login.html`, `static/css/style.css`, `static/js/app.js`, and `static/js/login.js` — lightweight frontend with a standalone login page, authenticated app shell, calendar-slot authentication, availability preferences, and suggested free slots.
 - `pyproject.toml` — Python package metadata and dependency list for `uv`.
 - `Dockerfile`, `fly.toml`, `requirements.txt`, and `.python-version` — Fly.io deployment settings for the hosted FastAPI service.
 - `.github/workflows/ci.yml` and `.github/workflows/deploy-fly.yml` — GitHub Actions CI and optional Fly.io CD workflows.
@@ -32,7 +32,7 @@ The setup instructions that are needed for the current prototype are included be
 - Google Calendar free/busy reads for primary calendars only; event titles, descriptions, attendees, and locations are not fetched.
 - Combined busy-block response for two connected accounts.
 - MVP matching endpoint that returns the top three non-overlapping meeting options from duration, weekday, allowed-hour, and busy-block constraints.
-- Simple frontend with app login/register controls, two authenticate buttons, account selectors, meeting duration, weekday/hour availability preferences, calendar visibility toggles, and suggested free slots.
+- Simple frontend that redirects unauthenticated users to `/login`, shows only the login/register page there, and shows the logged-in user menu at the top right of the app shell.
 - Automatic access-token refresh before Calendar API calls.
 
 ## Future implementation scope
@@ -177,8 +177,8 @@ http://127.0.0.1:8000/redoc
 
 ## Basic usage
 
-1. Open `http://127.0.0.1:8000`.
-2. Register or log in with an app account.
+1. Open `http://127.0.0.1:8000`; unauthenticated users are redirected to `/login`.
+2. Register or log in with an app account. After login, the app shell shows the current user menu in the top-right corner.
 3. Click **Authenticate user A** and complete the Google OAuth consent flow.
 4. Click **Authenticate user B** and complete the flow for a second calendar account.
 5. Select a meeting duration and weekday/hour availability preferences.
@@ -196,7 +196,8 @@ http://127.0.0.1:8000/oauth/start?account_label=b
 | Endpoint | Method | Description |
 | --- | --- | --- |
 | `/api/health` | GET | JSON health check. |
-| `/` | GET | Frontend home page. |
+| `/` | GET | Authenticated frontend home page; redirects unauthenticated users to `/login`. |
+| `/login` | GET | Standalone login/register page; redirects authenticated users back to `/`. |
 | `/auth/register` | POST | Create an app user and return/set a session token. |
 | `/auth/login` | POST | Authenticate an app user and return/set a session token. |
 | `/auth/logout` | POST | Revoke the current session and clear the session cookie. |

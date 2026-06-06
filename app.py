@@ -339,15 +339,10 @@ def require_current_user(
     if not token:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    db = SessionLocal()
-    try:
-        user = SQLiteIdentityRepository(db).get_user_by_session_token(token)
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid or expired session")
-        db.expunge(user)
-        return user
-    finally:
-        db.close()
+    user = _current_user_from_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+    return user
 
 
 # ============================================================================
@@ -662,12 +657,43 @@ async def health():
     return {"status": "healthy"}
 
 
+def _current_user_from_token(token: Optional[str]) -> Optional[User]:
+    """Return a user for a session token, or None when absent/invalid."""
+    if not token:
+        return None
+
+    db = SessionLocal()
+    try:
+        user = SQLiteIdentityRepository(db).get_user_by_session_token(token)
+        if user:
+            db.expunge(user)
+        return user
+    finally:
+        db.close()
+
+
+def _current_user_from_request(request: Request) -> Optional[User]:
+    """Return the current cookie-authenticated user for page routing."""
+    return _current_user_from_token(request.cookies.get(SESSION_COOKIE_NAME))
+
+
 @app.get("/", response_class=HTMLResponse)
-async def home(request: Optional[str] = None):
-    """Serve the simple frontend page"""
-    # read the HTML template from disk
-    # the HTML lives under static/html now
+async def home(request: Request):
+    """Serve the app shell only to authenticated users."""
+    if not _current_user_from_request(request):
+        return RedirectResponse(url="/login", status_code=303)
+
     template_path = SysPath(__file__).parent / "static" / "html" / "home.html"
+    return HTMLResponse(content=template_path.read_text(), status_code=200)
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    """Serve the standalone login page for unauthenticated users."""
+    if _current_user_from_request(request):
+        return RedirectResponse(url="/", status_code=303)
+
+    template_path = SysPath(__file__).parent / "static" / "html" / "login.html"
     return HTMLResponse(content=template_path.read_text(), status_code=200)
 
 

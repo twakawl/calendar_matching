@@ -23,6 +23,8 @@ Users must log in before connecting calendars, creating meeting requests, accept
 - Login creates a session token that is returned for bearer-token API use and also set as an HTTP-only browser cookie.
 - Logout revokes the current session token.
 - Calendar account listing, Google OAuth start, free/busy reads, paired availability, and matching now require an authenticated app user.
+- Unauthenticated browser users are redirected to `/login` and see only the standalone login/register page until authenticated.
+- The authenticated app shell shows the current user name or email in a top-right user menu with logout.
 - Connected Google calendar slots are owned by the logged-in user while still exposing prototype slot names `a` and `b` in the UI.
 
 Still deferred:
