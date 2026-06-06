@@ -11,7 +11,10 @@ This repository currently contains both planning documentation and a runnable pr
 - `app.py` — single-file FastAPI backend, OAuth callback handling, SQLite persistence, encrypted token storage, Google Calendar free/busy calls, and API endpoints.
 - `static/html/home.html`, `static/css/style.css`, and `static/js/app.js` — lightweight frontend for authenticating two accounts, choosing availability preferences, and viewing suggested free slots.
 - `pyproject.toml` — Python package metadata and dependency list for `uv`.
-- `.env.example` — environment-variable template for Google OAuth credentials, a Fernet key, and the optional database URL.
+- `Dockerfile`, `fly.toml`, `requirements.txt`, and `.python-version` — Fly.io deployment settings for the hosted FastAPI service.
+- `.github/workflows/ci.yml` and `.github/workflows/deploy-fly.yml` — GitHub Actions CI and optional Fly.io CD workflows.
+- `cloud_hosting/fly_io.md` — Fly.io account, deployment, environment, OAuth callback, and troubleshooting instructions.
+- `.env.example` — environment-variable template for Google OAuth credentials, a Fernet key, database configuration, and hosted redirect settings.
 - `tests/test_verify_setup.py` — setup verification script for environment variables, imports, and local database readiness.
 - `test.py` — manual helper script for printing local `google_accounts` rows.
 - `DEBUGGING_GUIDE.md` — manual troubleshooting notes for the current prototype.
@@ -77,7 +80,7 @@ Copy the template and fill in your Google OAuth credentials plus a Fernet key:
 cp .env.example .env
 ```
 
-Required values:
+Required local values:
 
 ```env
 GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
@@ -86,13 +89,23 @@ ENCRYPTION_KEY=your_fernet_key
 DATABASE_URL=sqlite:///./calendar.db
 ```
 
+Hosted deployments can also set:
+
+```env
+PUBLIC_BASE_URL=https://your-fly-app.fly.dev
+GOOGLE_REDIRECT_URI=https://your-fly-app.fly.dev/oauth/callback
+PORT=8000
+```
+
+`GOOGLE_REDIRECT_URI` is optional when `PUBLIC_BASE_URL` is set; the app derives `${PUBLIC_BASE_URL}/oauth/callback`.
+
 Generate a Fernet key with:
 
 ```bash
 python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-`DATABASE_URL` is optional. If omitted, the app uses `sqlite:///./calendar.db`.
+`DATABASE_URL` is optional for local development. If omitted, the app uses `sqlite:///./calendar.db`; hosted deployments should point it at durable managed storage.
 
 ## Install dependencies
 
@@ -124,10 +137,16 @@ The environment check fails until `.env` exists and contains valid-looking value
 
 ## Run the app
 
-Start the FastAPI application:
+Start the FastAPI application locally:
 
 ```bash
 uv run python app.py
+```
+
+The hosted Docker command used by Fly.io is:
+
+```bash
+uvicorn app:app --host 0.0.0.0 --port ${PORT:-8000}
 ```
 
 Then open:
@@ -182,6 +201,21 @@ Example paired request:
 ```bash
 curl "http://127.0.0.1:8000/pair?time_min=2026-02-28T00:00:00Z&time_max=2026-03-10T00:00:00Z"
 ```
+
+
+## CI/CD and cloud hosting
+
+Fly.io is the first documented hosting target for this prototype. The deployment support includes:
+
+- `Dockerfile` with the hosted `uvicorn` command.
+- `fly.toml` with Fly.io app, build, service, and health-check settings.
+- `requirements.txt` for Docker image dependency installation.
+- `.python-version` to pin Python `3.12.13` for CI/local tooling.
+- `.github/workflows/ci.yml` to run the setup verifier on pushes and pull requests.
+- `.github/workflows/deploy-fly.yml` for optional GitHub Actions-controlled deployment to Fly.io.
+- `cloud_hosting/fly_io.md` with the complete Fly.io setup checklist.
+
+For the first hosted deployment, follow `cloud_hosting/fly_io.md` and add the Fly.io callback URL to Google Cloud OAuth before testing authentication.
 
 ## Database schema
 
@@ -244,14 +278,23 @@ calendar_matching/
 ├── .env.example
 ├── .gitignore
 ├── AGENTS.md
+├── .github/workflows/
+│   ├── ci.yml
+│   └── deploy-fly.yml
+├── .python-version
 ├── DEBUGGING_GUIDE.md
+├── Dockerfile
 ├── README.md
 ├── app.py
+├── cloud_hosting/
+│   └── fly_io.md
+├── fly.toml
 ├── docs/
 │   ├── product-overview.md
 │   ├── roadmap.md
 │   └── features/
 ├── pyproject.toml
+├── requirements.txt
 ├── static/
 │   ├── css/style.css
 │   ├── html/home.html

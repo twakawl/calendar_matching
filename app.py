@@ -35,8 +35,13 @@ CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", "")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./calendar.db")
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 
-REDIRECT_URI = "http://127.0.0.1:8000/oauth/callback"
+REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "")
+if not REDIRECT_URI and PUBLIC_BASE_URL:
+    REDIRECT_URI = f"{PUBLIC_BASE_URL}/oauth/callback"
+if not REDIRECT_URI:
+    REDIRECT_URI = "http://127.0.0.1:8000/oauth/callback"
 # include openid/email scopes so we can identify the user (sub + email)
 SCOPES = [
     "https://www.googleapis.com/auth/calendar.freebusy",
@@ -90,7 +95,10 @@ def _validate_config():
 # ============================================================================
 
 Base = declarative_base()
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+engine_kwargs = {}
+if DATABASE_URL.startswith("sqlite"):
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+engine = create_engine(DATABASE_URL, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -778,4 +786,6 @@ def _merge_busy_periods(periods: list[BusyPeriod]) -> list[BusyPeriod]:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    host = os.getenv("HOST", "127.0.0.1")
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run(app, host=host, port=port)
