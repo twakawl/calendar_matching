@@ -49,7 +49,8 @@ fly secrets set \
   GOOGLE_CLIENT_SECRET="your_client_secret" \
   ENCRYPTION_KEY="your_fernet_key" \
   DATABASE_URL="sqlite:///./calendar.db" \
-  PUBLIC_BASE_URL="https://<your-fly-app>.fly.dev"
+  PUBLIC_BASE_URL="https://<your-fly-app>.fly.dev" \
+  GOOGLE_REDIRECT_URI="https://<your-fly-app>.fly.dev/oauth/callback"
 ```
 
 Generate a Fernet key locally with:
@@ -68,7 +69,7 @@ In Google Cloud Console, open the OAuth 2.0 Web application client and add this 
 https://<your-fly-app>.fly.dev/oauth/callback
 ```
 
-If you set `PUBLIC_BASE_URL=https://<your-fly-app>.fly.dev`, the app derives the callback as `${PUBLIC_BASE_URL}/oauth/callback`. If you set `GOOGLE_REDIRECT_URI`, make sure it exactly matches the value registered in Google Cloud.
+The app reads `GOOGLE_REDIRECT_URI` directly from the environment when it is set, so use that value for the Google Cloud authorized redirect URI. If `GOOGLE_REDIRECT_URI` is empty and you set `PUBLIC_BASE_URL=https://<your-fly-app>.fly.dev`, the app derives the callback as `${PUBLIC_BASE_URL}/oauth/callback`.
 
 Keep the local development redirect URI too if you still run the app locally:
 

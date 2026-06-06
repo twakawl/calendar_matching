@@ -6,26 +6,28 @@ This plan translates the documented product direction into a recommended build o
 
 ## Current repository assessment
 
-The repository is documentation-first. The product docs describe a login-protected app where users connect calendars, create meeting requests, compare availability, receive the best three options, optionally write proposed options to calendars, agree on a final option, and clean up unchosen app-created events.
+The repository now contains a runnable FastAPI prototype alongside the product planning docs. The prototype can connect two Google accounts in local slots, store encrypted refresh tokens in SQLite, read Google Calendar free/busy data, merge busy blocks, and display availability in a browser UI.
 
-One important issue should be resolved before implementation: `README.md` describes a runnable FastAPI, SQLite, and Google OAuth implementation, while the repository guidance says no application source files, dependency manifests, database migrations, or automated tests are present yet. The first development task should be to align the README and repository contents so contributors have one clear source of truth.
+The first implemented product slice beyond raw free/busy comparison is an MVP matching endpoint and UI path that accepts duration plus weekday/hour windows, combines both connected calendars, and returns the top three non-overlapping options with deterministic earliest-slot scoring.
+
+## Where we are after the first feature set
+
+- **Done:** runnable FastAPI app, Google OAuth connection for two local calendar slots, encrypted refresh-token storage, SQLite persistence, free/busy reads, merged busy blocks, health endpoint, static UI, Fly.io deployment notes, and setup/deployment checks.
+- **Done in this slice:** backend matching service and `/matching/options` endpoint that returns up to three candidate meeting options for the two connected calendars using duration, weekday, and allowed-hour constraints.
+- **Partially done:** the frontend can collect duration and weekday/hour preferences and display the three options, but it still uses fixed account slots instead of login-protected users.
+- **Not started:** first-party user accounts, secure invite links, request lifecycle records, persistent proposed options, calendar writes, agreement tracking, anonymized participant agenda views, Azure SQL implementation, and Microsoft Calendar.
+- **Next recommended task:** implement the foundation from Phase 1 by introducing real users/session authorization and a storage abstraction around the current SQLite tables, then migrate fixed account slots to user-owned calendar connections.
 
 ## Feature priority
 
-### 0. Align repository documentation and actual state
+### 0. Align repository documentation and actual state — done
 
-Before adding features, decide whether the runnable app described in `README.md` is missing or whether the README is ahead of the repository.
+The repository and README agree that this is a runnable FastAPI prototype with planning docs. Current source includes the single-file backend, static frontend, setup verification script, Docker/Fly.io deployment files, and feature documentation.
 
-Actions:
+Remaining follow-up:
 
-- If source files are intentionally absent, update `README.md` to describe the current documentation-first state.
-- Remove or clearly mark references to missing files such as `QUICKSTART.md`, `cloud_configuration.md`, `.env.example`, `app.py`, and `tests/test_verify_setup.py`.
-- If source files are unintentionally missing, restore the expected FastAPI app, configuration, tests, and setup docs.
-
-Why first:
-
-- It prevents contributors from following setup instructions that cannot work.
-- It clarifies whether the next work is greenfield implementation or restoration of an existing MVP.
+- Keep README API examples synchronized as the prototype gains endpoints.
+- Replace the fixed local account slots (`a` and `b`) with real authenticated users before exposing private data beyond local development.
 
 ### 1. Build the application foundation
 
