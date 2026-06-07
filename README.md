@@ -1,15 +1,15 @@
 # Calendar Matching
 
-Calendar Matching is an early-stage FastAPI prototype for comparing two Google Calendars. It authenticates two Google accounts with OAuth 2.0, stores encrypted refresh tokens in SQLite, reads only Google Calendar free/busy data, and shows overlapping availability in a simple browser UI.
+Calendar Matching is an early-stage FastAPI prototype for comparing two Google Calendars. It now includes first-party app registration/login, lets logged-in users connect two Google Calendar slots with OAuth 2.0, stores encrypted refresh tokens in SQLite, reads only Google Calendar free/busy data, and shows overlapping availability in a simple browser UI.
 
-The longer-term product direction is documented separately: authenticated users should eventually connect calendars, send meeting requests, and receive the best meeting options based on both users' availability and request preferences.
+The longer-term product direction is documented separately: authenticated users should eventually send meeting requests and receive the best meeting options based on both users' availability and request preferences.
 
 ## Current repository status
 
 This repository currently contains both planning documentation and a runnable prototype:
 
-- `app.py` — single-file FastAPI backend, OAuth callback handling, SQLite persistence, encrypted token storage, Google Calendar free/busy calls, and API endpoints.
-- `static/html/*.html`, `static/css/style.css`, and `static/js/app.js` — Bootstrap-based prototype frontend pages for the landing page, login/account calendar connections, dashboard, request creation, invite landing, request detail, and privacy-safe availability preview.
+- `app.py` — single-file FastAPI backend, first-party auth/session handling, OAuth callback handling, SQLite persistence, encrypted token storage, Google Calendar free/busy calls, and API endpoints.
+- `static/html/home.html`, `static/html/login.html`, `static/css/style.css`, `static/js/app.js`, and `static/js/login.js` — lightweight frontend with a standalone login page, authenticated app shell, calendar-slot authentication, availability preferences, and suggested free slots.
 - `pyproject.toml` — Python package metadata and dependency list for `uv`.
 - `Dockerfile`, `fly.toml`, `requirements.txt`, and `.python-version` — Fly.io deployment settings for the hosted FastAPI service.
 - `.github/workflows/ci.yml` and `.github/workflows/deploy-fly.yml` — GitHub Actions CI and optional Fly.io CD workflows.
@@ -24,10 +24,11 @@ The setup instructions that are needed for the current prototype are included be
 
 ## Implemented features
 
-- OAuth 2.0 Web Server Flow for Google Calendar.
+- First-party registration, login, logout, HTTP-only session cookies, and bearer-token API sessions.
+- OAuth 2.0 Web Server Flow for Google Calendar tied to the logged-in user.
 - Offline access with refresh token storage.
 - Fernet encryption for stored refresh tokens.
-- SQLite-backed `google_accounts` table.
+- SQLite-backed `users`, `user_sessions`, `oauth_states`, and user-owned `google_accounts` records.
 - Google Calendar free/busy reads for primary calendars only; event titles, descriptions, attendees, and locations are not fetched.
 - Combined busy-block response for two connected accounts.
 - MVP matching endpoint that returns the top three non-overlapping meeting options from duration, weekday, allowed-hour, and busy-block constraints.
@@ -38,8 +39,8 @@ The setup instructions that are needed for the current prototype are included be
 
 The current app is still a prototype. Future work described in `docs/` includes:
 
-- Login-protected first-party user accounts rather than only two local OAuth slots.
-- Storage abstraction that can support local SQLite and Azure SQL-style deployments.
+- Meeting-request records, invite links, and lifecycle statuses.
+- A fuller storage abstraction that can support local SQLite and Azure SQL-style deployments.
 - Meeting request links between users.
 - Matching that returns the best three options based on request constraints and both agendas.
 - Calendar writes for proposed options, final agreement tracking, and cleanup of unchosen app-created events.
@@ -176,13 +177,14 @@ http://127.0.0.1:8000/redoc
 
 ## Basic usage
 
-1. Open `http://127.0.0.1:8000` for the landing page.
-2. Open `/account` or `/login`, connect **Google Calendar · Slot A**, and complete the Google OAuth consent flow.
-3. Connect **Google Calendar · Slot B** and complete the second OAuth flow.
-4. Open `/requests/new`, fill or adjust the request placeholders for title, invitee, duration, date range, weekdays, and time window.
-5. Click **Find best options** to retrieve both calendars, compute the top three options, and render the privacy-safe availability preview.
+1. Open `http://127.0.0.1:8000`; unauthenticated users are redirected to `/login`.
+2. Register or log in with an app account. After login, the app shell shows the current user menu in the top-right corner.
+3. Click **Authenticate user A** and complete the Google OAuth consent flow.
+4. Click **Authenticate user B** and complete the flow for a second calendar account.
+5. Select a meeting duration and weekday/hour availability preferences.
+6. Click **Find matching times** to fetch both calendars' busy blocks and show the top three matching slots.
 
-Direct OAuth start URLs are also available:
+Direct OAuth start URLs are also available after logging in:
 
 ```text
 http://127.0.0.1:8000/oauth/start?account_label=a
@@ -206,31 +208,49 @@ The current frontend implements the first UI milestone from `docs/ui-design-plan
 | Endpoint | Method | Description |
 | --- | --- | --- |
 | `/api/health` | GET | JSON health check. |
-| `/` | GET | Frontend home page. |
-| `/oauth/start?account_label=a` | GET | Start Google OAuth for account slot `a` or `b`. |
+| `/` | GET | Authenticated frontend home page; redirects unauthenticated users to `/login`. |
+| `/login` | GET | Standalone login/register page; redirects authenticated users back to `/`. |
+| `/auth/register` | POST | Create an app user and return/set a session token. |
+| `/auth/login` | POST | Authenticate an app user and return/set a session token. |
+| `/auth/logout` | POST | Revoke the current session and clear the session cookie. |
+| `/auth/me` | GET | Return the logged-in app user. |
+| `/oauth/start?account_label=a` | GET | Start Google OAuth for user-owned account slot `a` or `b`; requires login. |
 | `/oauth/callback` | GET | OAuth callback used by Google. |
-| `/freebusy/{account_label}` | GET | Free/busy response for one connected account. Requires `time_min` and `time_max`. |
-| `/pair` | GET | Combined free/busy response for both connected accounts. Requires `time_min` and `time_max`. |
-| `/matching/options` | POST | Returns up to three non-overlapping options for both connected calendars using `time_min`, `time_max`, `duration_minutes`, and optional weekday/time windows. |
-| `/accounts` | GET | Stored account metadata, without tokens. |
+| `/freebusy/{account_label}` | GET | Free/busy response for one connected account owned by the logged-in user. Requires `time_min` and `time_max`. |
+| `/pair` | GET | Combined free/busy response for both connected accounts owned by the logged-in user. Requires `time_min` and `time_max`. |
+| `/matching/options` | POST | Returns up to three non-overlapping options for both connected calendars owned by the logged-in user using `time_min`, `time_max`, `duration_minutes`, and optional weekday/time windows. |
+| `/accounts` | GET | Logged-in user's stored account metadata, without tokens. |
 | `/accounts/select` | POST | Prototype endpoint for marking an account selected in the UI. |
+
+Example login request:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","password":"correct horse battery staple"}'
+```
+
+Use the returned `session_token` as a bearer token for API calls, or rely on the browser cookie set by the frontend.
 
 Example one-account request:
 
 ```bash
-curl "http://127.0.0.1:8000/freebusy/a?time_min=2026-02-28T00:00:00Z&time_max=2026-03-10T00:00:00Z"
+curl -H "Authorization: Bearer $SESSION_TOKEN" \
+  "http://127.0.0.1:8000/freebusy/a?time_min=2026-02-28T00:00:00Z&time_max=2026-03-10T00:00:00Z"
 ```
 
 Example paired request:
 
 ```bash
-curl "http://127.0.0.1:8000/pair?time_min=2026-02-28T00:00:00Z&time_max=2026-03-10T00:00:00Z"
+curl -H "Authorization: Bearer $SESSION_TOKEN" \
+  "http://127.0.0.1:8000/pair?time_min=2026-02-28T00:00:00Z&time_max=2026-03-10T00:00:00Z"
 ```
 
 Example matching request:
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/matching/options" \
+  -H "Authorization: Bearer $SESSION_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "time_min": "2026-06-08T09:00:00Z",
@@ -262,11 +282,12 @@ For the first hosted deployment, follow `cloud_hosting/fly_io.md` and add the Fl
 
 ## Database schema
 
-The prototype creates a local SQLite database by default. The `google_accounts` table contains:
+The prototype creates a local SQLite database by default. Authentication data lives in `users` and `user_sessions`; session tokens are stored only as SHA-256 hashes and passwords are stored as PBKDF2 hashes. OAuth callbacks are protected with short-lived one-time `oauth_states`. The `google_accounts` table contains:
 
 | Column | Purpose |
 | --- | --- |
-| `account_label` | Primary key, currently `a` or `b`. |
+| `account_label` | Primary key using an internal user-owned slot key. |
+| `owner_user_id` | App user that owns the connected calendar slot. |
 | `google_sub` | Unique Google account identifier. |
 | `email` | Connected Google account email address. |
 | `refresh_token` | Encrypted refresh token. |
@@ -278,11 +299,12 @@ Local database files such as `calendar.db` are ignored by Git.
 
 ## Security notes
 
+- Passwords are stored as salted PBKDF2 hashes, and session tokens are stored only as SHA-256 hashes.
 - Refresh tokens are encrypted with Fernet before storage.
 - Secrets are loaded from environment variables and should not be committed.
 - The Google Calendar scope is limited to `calendar.freebusy`.
 - The API returns busy time ranges only, not event details.
-- This is a local prototype and does not yet include production-grade user login, CSRF/session hardening, secret rotation, or multi-user tenancy controls.
+- This is a local prototype and does not yet include production-grade CSRF/session hardening, secret rotation, rate limiting, email verification, or password reset flows.
 
 ## Troubleshooting
 
@@ -345,7 +367,9 @@ calendar_matching/
 ├── test.py
 └── tests/
     ├── __init__.py
+    ├── test_auth.py
     ├── test_deployment_config.py
+    ├── test_matching_options.py
     └── test_verify_setup.py
 ```
 

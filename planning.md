@@ -12,11 +12,11 @@ The first implemented product slice beyond raw free/busy comparison is an MVP ma
 
 ## Where we are after the first feature set
 
-- **Done:** runnable FastAPI app, Google OAuth connection for two local calendar slots, encrypted refresh-token storage, SQLite persistence, free/busy reads, merged busy blocks, health endpoint, static UI, Fly.io deployment notes, and setup/deployment checks.
+- **Done:** runnable FastAPI app, first-party registration/login/session foundation, Google OAuth connection for two user-owned local calendar slots, encrypted refresh-token storage, SQLite persistence, free/busy reads, merged busy blocks, health endpoint, static UI, Fly.io deployment notes, and setup/deployment checks.
 - **Done in this slice:** backend matching service and `/matching/options` endpoint that returns up to three candidate meeting options for the two connected calendars using duration, weekday, and allowed-hour constraints.
-- **Partially done:** the frontend can collect duration and weekday/hour preferences and display the three options, but it still uses fixed account slots instead of login-protected users.
-- **Not started:** first-party user accounts, secure invite links, request lifecycle records, persistent proposed options, calendar writes, agreement tracking, anonymized participant agenda views, Azure SQL implementation, and Microsoft Calendar.
-- **Next recommended task:** implement the foundation from Phase 1 by introducing real users/session authorization and a storage abstraction around the current SQLite tables, then migrate fixed account slots to user-owned calendar connections.
+- **Partially done:** the frontend can collect duration and weekday/hour preferences and display the three options, and the fixed `a`/`b` prototype slots are now scoped to the logged-in app user.
+- **Not started:** secure invite links, request lifecycle records, persistent proposed options, calendar writes, agreement tracking, anonymized participant agenda views, Azure SQL implementation, and Microsoft Calendar.
+- **Next recommended task:** continue Phase 1 foundation work by extracting the single-file prototype into a clearer package structure with fuller repository interfaces and migrations, then start meeting request creation and invite links from Phase 3.
 
 ## Feature priority
 

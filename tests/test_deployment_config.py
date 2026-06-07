@@ -49,7 +49,7 @@ class DeploymentConfigTest(unittest.TestCase):
         self.assertIn("- '**'", ci_workflow)
         self.assertIn("uv run python tests/test_verify_setup.py", ci_workflow)
         self.assertIn(
-            "uv run python -m unittest tests.test_matching_options tests.test_deployment_config",
+            "uv run python -m unittest tests.test_matching_options tests.test_auth tests.test_deployment_config",
             ci_workflow,
         )
 

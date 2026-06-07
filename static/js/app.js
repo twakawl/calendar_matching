@@ -65,6 +65,39 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(updateHealth, 5000);
     updateHealth();
 
+    function userDisplayName(user) {
+        return user.display_name || user.email;
+    }
+
+    function setSessionUi(user) {
+        if (!user) {
+            window.location.replace("/login");
+            return;
+        }
+
+        const menuName = $("userMenuName");
+        if (menuName) menuName.textContent = userDisplayName(user);
+    }
+
+    async function loadCurrentUser() {
+        const res = await fetch("/auth/me");
+        if (!res.ok) {
+            setSessionUi(null);
+            return null;
+        }
+        const user = await res.json();
+        setSessionUi(user);
+        return user;
+    }
+
+    const logoutBtn = $("logoutBtn");
+    if (logoutBtn) {
+        logoutBtn.onclick = async () => {
+            await fetch("/auth/logout", { method: "POST" });
+            window.location.replace("/login");
+        };
+    }
+
     function showEmail(label, email) {
         const container = $("emails");
         if (!container) return;
@@ -309,6 +342,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function loadAccounts() {
         const res = await fetch("/accounts");
+        if (res.status === 401) {
+            window.location.replace("/login");
+            return;
+        }
         if (!res.ok) return;
 
         const list = await res.json();
@@ -442,10 +479,22 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const authA = $("authA");
-    if (authA) authA.onclick = () => (window.location = "/oauth/start?account_label=a");
+    if (authA) {
+        authA.onclick = async () => {
+            const user = await loadCurrentUser();
+            if (!user) return alert("Log in before connecting calendar A");
+            window.location = "/oauth/start?account_label=a";
+        };
+    }
 
     const authB = $("authB");
-    if (authB) authB.onclick = () => (window.location = "/oauth/start?account_label=b");
+    if (authB) {
+        authB.onclick = async () => {
+            const user = await loadCurrentUser();
+            if (!user) return alert("Log in before connecting calendar B");
+            window.location = "/oauth/start?account_label=b";
+        };
+    }
 
     const prevBtn = $("prevDay");
     if (prevBtn) {
