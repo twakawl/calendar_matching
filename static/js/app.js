@@ -1,6 +1,5 @@
-// frontend behavior for Calendar Matching
+// Frontend behavior for the Calendar Matching prototype UI.
 document.addEventListener("DOMContentLoaded", () => {
-    // State variables for calendar
     let currentDisplayDate = null;
     let busyDataA = { busy: [] };
     let busyDataB = { busy: [] };
@@ -9,16 +8,34 @@ document.addEventListener("DOMContentLoaded", () => {
     let userPrefs = [];
     let showCalendarA = true;
     let showCalendarB = true;
+    let accountsLoaded = 0;
 
-    // -----------------------------
-    // Utilities
-    // -----------------------------
     function $(id) {
         return document.getElementById(id);
     }
 
+    function setText(id, text) {
+        const el = $(id);
+        if (el) el.textContent = text;
+    }
+
+    function setBadge(id, text, className) {
+        const el = $(id);
+        if (!el) return;
+        el.textContent = text;
+        el.className = `badge ${className}`;
+    }
+
+    function escapeHtml(value) {
+        return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
     function ensureSuggestedContainer() {
-        // Renders suggested slots outside the grid (so we don't wipe the calendar)
         let el = $("suggestedSlots");
         if (!el) {
             el = document.createElement("div");
@@ -33,19 +50,16 @@ document.addEventListener("DOMContentLoaded", () => {
         return el;
     }
 
-    // -----------------------------
-    // Health indicator
-    // -----------------------------
     function updateHealth() {
         fetch("/api/health")
             .then((r) => r.json())
             .then((d) => {
                 const el = $("health");
-                if (el) el.style.background = d.status === "healthy" ? "green" : "red";
+                if (el) el.style.background = d.status === "healthy" ? "#16a34a" : "#dc2626";
             })
             .catch(() => {
                 const el = $("health");
-                if (el) el.style.background = "red";
+                if (el) el.style.background = "#dc2626";
             });
     }
     setInterval(updateHealth, 5000);
@@ -88,33 +102,65 @@ document.addEventListener("DOMContentLoaded", () => {
         const container = $("emails");
         if (!container) return;
         const p = document.createElement("p");
-        p.textContent = `${String(label).toUpperCase()} logged in: ${email}`;
+        p.className = "mb-1";
+        p.textContent = `${String(label).toUpperCase()} connected: ${email}`;
         container.appendChild(p);
     }
 
-    // -----------------------------
-    // Preferences UI
-    // -----------------------------
     function populateTimeSelects() {
         const table = $("prefsTable");
         if (!table) return;
 
-        const selects = table.querySelectorAll("select");
-        selects.forEach((sel) => {
-            // prevent duplicate options if called twice
+        table.querySelectorAll("select").forEach((sel) => {
             if (sel.options && sel.options.length > 0) return;
-
             for (let h = 0; h < 24; h++) {
                 const hh = String(h).padStart(2, "0");
                 const opt = document.createElement("option");
-                opt.value = hh; // hour-only, convert later
+                opt.value = hh;
                 opt.textContent = hh;
                 sel.appendChild(opt);
             }
         });
     }
 
+    function setDefaultDates() {
+        const earliest = $("earliestDate");
+        const latest = $("latestDate");
+        if (!earliest || !latest || earliest.value || latest.value) return;
+
+        const now = new Date();
+        const start = new Date(now);
+        start.setUTCDate(start.getUTCDate() + 1);
+        const end = new Date(start);
+        end.setUTCDate(end.getUTCDate() + 14);
+        earliest.value = start.toISOString().slice(0, 10);
+        latest.value = end.toISOString().slice(0, 10);
+    }
+
+    function getDateRange() {
+        const earliest = $("earliestDate")?.value;
+        const latest = $("latestDate")?.value;
+        if (earliest && latest) {
+            return {
+                timeMin: `${earliest}T00:00:00.000Z`,
+                timeMax: `${latest}T23:59:59.000Z`,
+            };
+        }
+        const now = new Date();
+        const later = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
+        return { timeMin: now.toISOString(), timeMax: later.toISOString() };
+    }
+
     function getPrefsFromTable() {
+        const weekdayInputs = document.querySelectorAll(".weekday-input");
+        if (weekdayInputs.length > 0) {
+            const start = $("windowStart")?.value || "09:00";
+            const end = $("windowEnd")?.value || "17:00";
+            return Array.from(weekdayInputs)
+                .filter((input) => input.checked)
+                .map((input) => ({ day: input.dataset.day, start, end }));
+        }
+
         const table = $("prefsTable");
         if (!table) return [];
 
@@ -128,7 +174,6 @@ document.addEventListener("DOMContentLoaded", () => {
             const endSel = row.querySelector("select.end");
             if (!day || !startSel || !endSel) return;
 
-            // convert hour-only value to hh:00 for comparison
             prefs.push({ day, start: `${startSel.value}:00`, end: `${endSel.value}:00` });
         });
         return prefs;
@@ -137,33 +182,22 @@ document.addEventListener("DOMContentLoaded", () => {
     function convertPrefsArray(arr) {
         const days = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
         return (arr || [])
-            .map((p) => ({
-                day: days[p.day],
-                start: p.start,
-                end: p.end,
-            }))
-            .filter((p) => Number.isInteger(p.day) && p.start && p.end);
+            .map((p) => ({ day: days[p.day], start: p.start, end: p.end }))
+            .filter((p) => Number.isInteger(p.day) && p.start && p.end && p.start < p.end);
     }
 
     function inPref(isoDateTime, prefs) {
         const d = new Date(isoDateTime);
-        const weekday = d.getUTCDay();
-        const time = d.toISOString().slice(11, 16); // HH:MM
+        const weekday = (d.getUTCDay() + 6) % 7; // Convert JS Sun=0 to Python-style Mon=0.
+        const time = d.toISOString().slice(11, 16);
         return prefs.some((p) => p.day === weekday && time >= p.start && time < p.end);
     }
 
-    // -----------------------------
-    // Busy checks
-    // -----------------------------
     function isBusy(dateStr, busyData) {
         const busyArr = (busyData && busyData.busy) || [];
         return busyArr.some((b) => {
             if (!b?.start || !b?.end) return false;
-
-            // Handle zero-duration events (start === end)
             if (b.start === b.end) return dateStr === b.start;
-
-            // ISO string compare works if all are UTC ISO strings
             return dateStr >= b.start && dateStr < b.end;
         });
     }
@@ -174,20 +208,51 @@ document.addEventListener("DOMContentLoaded", () => {
         return !isBusyCombined && inPrefTime;
     }
 
-    // -----------------------------
-    // Rendering
-    // -----------------------------
-    function renderSuggestedSlots() {
-        const el = ensureSuggestedContainer();
+    function renderOptionCards() {
+        const optionCards = $("optionCards");
+        if (!optionCards) return;
 
-        let html = "<h3>Top suggested meeting times (next 7 days)</h3>";
         if (!suggestedSlots || suggestedSlots.length === 0) {
-            html += "<div class='suggestedItem'>No suggested slots found.</div>";
-            el.innerHTML = html;
+            optionCards.innerHTML = '<div class="col-12"><div class="empty-state rounded-4 p-4 text-center">No shared free time was found. Try extending the date range or relaxing the allowed hours.</div></div>';
             return;
         }
 
-        suggestedSlots.slice(0, 10).forEach((slot) => {
+        optionCards.innerHTML = suggestedSlots.slice(0, 3).map((slot, index) => {
+            const start = new Date(slot.start);
+            const end = new Date(slot.end);
+            const label = index === 0 ? "Best option" : `Option ${index + 1}`;
+            const badge = index === 0 ? "text-bg-success" : "text-bg-light";
+            const border = index === 0 ? "border-success" : "";
+            const day = start.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+            const startTime = start.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+            const endTime = end.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+            const reason = slot.reason || "Both calendars are free and the slot fits your request constraints.";
+            return `
+                <div class="col-md-4">
+                    <div class="option-card card h-100 ${border}">
+                        <div class="card-body p-4">
+                            <span class="badge ${badge}">${label}</span>
+                            <h3 class="h5 mt-3">${escapeHtml(day)}</h3>
+                            <p class="fs-5 fw-semibold mb-1">${escapeHtml(startTime)}–${escapeHtml(endTime)}</p>
+                            <p class="small text-secondary">UTC / browser display placeholder</p>
+                            <p class="small">${escapeHtml(reason)}</p>
+                            <button class="btn ${index === 0 ? "btn-success" : "btn-outline-primary"} w-100" type="button">Choose this option</button>
+                        </div>
+                    </div>
+                </div>`;
+        }).join("");
+    }
+
+    function renderSuggestedSlots() {
+        const el = ensureSuggestedContainer();
+
+        if (!suggestedSlots || suggestedSlots.length === 0) {
+            el.innerHTML = "<div class='suggestedItem'>No suggested slots found.</div>";
+            renderOptionCards();
+            return;
+        }
+
+        const items = suggestedSlots.slice(0, 3).map((slot, index) => {
             const startDate = new Date(slot.start).toLocaleString("en-US", {
                 month: "short",
                 day: "numeric",
@@ -198,10 +263,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 hour: "2-digit",
                 minute: "2-digit",
             });
-            html += `<div class="suggestedItem">${startDate} → ${endTime}</div>`;
-        });
+            return `<div class="suggestedItem"><strong>${index === 0 ? "Best option" : `Option ${index + 1}`}</strong><br>${startDate} → ${endTime}</div>`;
+        }).join("");
 
-        el.innerHTML = html;
+        el.innerHTML = `<h3 class="h5">Top suggested meeting times</h3><div class="suggested-grid">${items}</div>`;
+        renderOptionCards();
     }
 
     function renderCalendarGrid(displayDate) {
@@ -212,43 +278,25 @@ document.addEventListener("DOMContentLoaded", () => {
         const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
         const dayName = dayNames[displayDate.getUTCDay()];
         const dateStr = displayDate.toISOString().split("T")[0];
+        setText("currentDate", `${dateStr} (${dayName})`);
 
-        const currentDateEl = $("currentDate");
-        if (currentDateEl) currentDateEl.textContent = `${dateStr} (${dayName})`;
-
-        // Dynamic grid columns
-        let gridCols = "60px"; // Time column
-        if (showCalendarA) gridCols += " 1fr";
-        if (showCalendarB) gridCols += " 1fr";
-        gridCols += " 1fr"; // Available
+        let gridCols = "70px";
+        if (showCalendarA) gridCols += " minmax(130px, 1fr)";
+        if (showCalendarB) gridCols += " minmax(130px, 1fr)";
+        gridCols += " minmax(130px, 1fr)";
         container.style.gridTemplateColumns = gridCols;
 
-        // Header row
-        const headerTime = document.createElement("div");
-        headerTime.className = "timeColumnHeader";
-        headerTime.textContent = "Time";
-        container.appendChild(headerTime);
+        const headers = ["Time"];
+        if (showCalendarA) headers.push("Requester");
+        if (showCalendarB) headers.push("Invitee");
+        headers.push("Available");
+        headers.forEach((header, index) => {
+            const el = document.createElement("div");
+            el.className = index === 0 ? "timeColumnHeader" : "dayColumnHeader";
+            el.textContent = header;
+            container.appendChild(el);
+        });
 
-        if (showCalendarA) {
-            const headerA = document.createElement("div");
-            headerA.className = "dayColumnHeader";
-            headerA.textContent = "Account A";
-            container.appendChild(headerA);
-        }
-
-        if (showCalendarB) {
-            const headerB = document.createElement("div");
-            headerB.className = "dayColumnHeader";
-            headerB.textContent = "Account B";
-            container.appendChild(headerB);
-        }
-
-        const headerAvail = document.createElement("div");
-        headerAvail.className = "dayColumnHeader";
-        headerAvail.textContent = "Available";
-        container.appendChild(headerAvail);
-
-        // 30-minute slots
         for (let hour = 0; hour < 24; hour++) {
             for (let min = 0; min < 60; min += 30) {
                 const hh = String(hour).padStart(2, "0");
@@ -256,13 +304,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 const timeStr = `${hh}:${mm}`;
                 const slotDateTime = `${dateStr}T${timeStr}:00Z`;
 
-                // Time label
                 const timeCell = document.createElement("div");
                 timeCell.className = "timeSlot timeLabel";
                 timeCell.textContent = timeStr;
                 container.appendChild(timeCell);
 
-                // Account A
                 if (showCalendarA) {
                     const slotA = document.createElement("div");
                     slotA.className = "timeSlot";
@@ -273,7 +319,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     container.appendChild(slotA);
                 }
 
-                // Account B
                 if (showCalendarB) {
                     const slotB = document.createElement("div");
                     slotB.className = "timeSlot";
@@ -284,7 +329,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     container.appendChild(slotB);
                 }
 
-                // Available/Suggested
                 const slotAvail = document.createElement("div");
                 slotAvail.className = "timeSlot";
                 if (isSuggested(slotDateTime)) {
@@ -296,32 +340,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // -----------------------------
-    // Navigation handlers
-    // -----------------------------
-    const prevBtn = $("prevDay");
-    if (prevBtn) {
-        prevBtn.onclick = () => {
-            if (!currentDisplayDate) return;
-            currentDisplayDate.setUTCDate(currentDisplayDate.getUTCDate() - 1);
-            renderCalendarGrid(currentDisplayDate);
-        };
-    }
-
-    const nextBtn = $("nextDay");
-    if (nextBtn) {
-        nextBtn.onclick = () => {
-            if (!currentDisplayDate) return;
-            currentDisplayDate.setUTCDate(currentDisplayDate.getUTCDate() + 1);
-            renderCalendarGrid(currentDisplayDate);
-        };
-    }
-
-    // -----------------------------
-    // Accounts
-    // -----------------------------
-    let accountsLoaded = 0;
-
     async function loadAccounts() {
         const res = await fetch("/accounts");
         if (res.status === 401) {
@@ -331,13 +349,30 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!res.ok) return;
 
         const list = await res.json();
+        accountsLoaded = list.length;
+
+        const accountA = list.find((acc) => acc.account_label === "a");
+        const accountB = list.find((acc) => acc.account_label === "b");
+        if (accountA) {
+            setText("emailA", accountA.email);
+            setBadge("statusA", "Connected", "text-bg-success");
+        }
+        if (accountB) {
+            setText("emailB", accountB.email);
+            setBadge("statusB", "Connected", "text-bg-success");
+        }
+
         const selA = $("selectA");
         const selB = $("selectB");
         if (!selA || !selB) return;
 
-        // Prevent duplicates if called again
         selA.innerHTML = "";
         selB.innerHTML = "";
+        if (list.length === 0) {
+            selA.innerHTML = '<option value="a">Connect account A first</option>';
+            selB.innerHTML = '<option value="b">Connect account B first</option>';
+            return;
+        }
 
         list.forEach((acc) => {
             const optA = document.createElement("option");
@@ -347,31 +382,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const optB = optA.cloneNode(true);
             selB.appendChild(optB);
-
-            if (acc.cached_busy) {
-                console.log(`cached busy for ${acc.account_label}:`, acc.cached_busy);
-            }
         });
 
-        accountsLoaded = list.length;
-
-        // Save selection
-        [selA, selB].forEach((sel) => {
-            sel.onchange = () => {
-                const params = new URLSearchParams({
-                    account_label: sel.value,
-                    selected_as: sel === selA ? "a" : "b",
-                });
-                fetch(`/accounts/select?${params.toString()}`, {
-                    method: "POST",
-                }).catch(() => { });
-            };
-        });
+        if (accountA) selA.value = "a";
+        if (accountB) selB.value = "b";
     }
 
-    // -----------------------------
-    // One-time init & handlers
-    // -----------------------------
     function initAuthCallbackBanner() {
         const params = new URLSearchParams(window.location.search);
         const accountLabel = params.get("account_label");
@@ -379,9 +395,86 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (accountLabel && email) {
             showEmail(accountLabel, email);
-            // Just refresh accounts list once (do not recurse init)
             loadAccounts().catch(() => { });
             history.replaceState(null, "", window.location.pathname);
+        }
+    }
+
+    async function findMatchingTimes() {
+        if (accountsLoaded < 2) {
+            alert("Both calendars must be connected first. Use the Account page to connect Google Calendar slots A and B.");
+            return;
+        }
+
+        const { timeMin, timeMax } = getDateRange();
+        userPrefs = convertPrefsArray(getPrefsFromTable());
+
+        const overview = $("overview");
+        if (overview) overview.innerHTML = '<div class="alert alert-info">Checking calendars and finding the best options…</div>';
+
+        const res = await fetch(`/pair?time_min=${encodeURIComponent(timeMin)}&time_max=${encodeURIComponent(timeMax)}`);
+        if (!res.ok) {
+            if (overview) overview.innerHTML = '<div class="alert alert-danger">Error fetching calendar availability. Reconnect calendars or try again.</div>';
+            return;
+        }
+
+        const data = await res.json();
+        busyDataA = data.account_a || { busy: [] };
+        busyDataB = data.account_b || { busy: [] };
+        combinedBusy = data.combined_busy || [];
+
+        const durationMinutes = Number($("durationMinutes")?.value || 30);
+        const matchRes = await fetch("/matching/options", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                time_min: timeMin,
+                time_max: timeMax,
+                duration_minutes: durationMinutes,
+                allowed_windows: userPrefs,
+                max_options: 3,
+            }),
+        });
+
+        if (matchRes.ok) {
+            const matchData = await matchRes.json();
+            suggestedSlots = matchData.options || [];
+        } else {
+            suggestedSlots = [];
+            let last = timeMin;
+            combinedBusy
+                .slice()
+                .sort((x, y) => String(x.start).localeCompare(String(y.start)))
+                .forEach((b) => {
+                    if (b.start > last) suggestedSlots.push({ start: last, end: b.start });
+                    if (b.end > last) last = b.end;
+                });
+            if (last < timeMax) suggestedSlots.push({ start: last, end: timeMax });
+            if (userPrefs.length) suggestedSlots = suggestedSlots.filter((s) => inPref(s.start, userPrefs));
+            suggestedSlots = suggestedSlots.slice(0, 3);
+        }
+
+        currentDisplayDate = new Date(timeMin);
+        showCalendarA = true;
+        showCalendarB = true;
+
+        const calendarContainer = $("calendarContainer");
+        if (calendarContainer) calendarContainer.style.display = "block";
+
+        renderCalendarGrid(currentDisplayDate);
+        renderSuggestedSlots();
+
+        if (overview) {
+            overview.innerHTML = `
+                <details>
+                    <summary class="fw-semibold">Developer/debug response data</summary>
+                    <h3 class="h6 mt-3">Requester (${escapeHtml(data?.account_a?.email || "unknown")})</h3>
+                    <pre>${escapeHtml(JSON.stringify(data?.account_a?.busy || [], null, 2))}</pre>
+                    <h3 class="h6">Invitee (${escapeHtml(data?.account_b?.email || "unknown")})</h3>
+                    <pre>${escapeHtml(JSON.stringify(data?.account_b?.busy || [], null, 2))}</pre>
+                    <h3 class="h6">Combined busy periods</h3>
+                    <pre>${escapeHtml(JSON.stringify(data?.combined_busy || [], null, 2))}</pre>
+                </details>`;
         }
     }
 
@@ -403,7 +496,24 @@ document.addEventListener("DOMContentLoaded", () => {
         };
     }
 
-    // Toggle columns (A/B) and re-render
+    const prevBtn = $("prevDay");
+    if (prevBtn) {
+        prevBtn.onclick = () => {
+            if (!currentDisplayDate) return;
+            currentDisplayDate.setUTCDate(currentDisplayDate.getUTCDate() - 1);
+            renderCalendarGrid(currentDisplayDate);
+        };
+    }
+
+    const nextBtn = $("nextDay");
+    if (nextBtn) {
+        nextBtn.onclick = () => {
+            if (!currentDisplayDate) return;
+            currentDisplayDate.setUTCDate(currentDisplayDate.getUTCDate() + 1);
+            renderCalendarGrid(currentDisplayDate);
+        };
+    }
+
     const toggleA = $("toggleA");
     if (toggleA) {
         toggleA.onclick = () => {
@@ -421,111 +531,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const findBtn = $("findBtn");
-    if (findBtn) {
-        findBtn.onclick = async () => {
-            if (accountsLoaded < 2) {
-                alert("Both calendars must be connected first");
-                return;
-            }
+    if (findBtn) findBtn.onclick = findMatchingTimes;
 
-            const now = new Date();
-            const later = new Date(now.getTime() + 7 * 24 * 3600 * 1000);
-
-            const nowISO = now.toISOString();
-            const laterISO = later.toISOString();
-
-            const rawPrefs = getPrefsFromTable();
-            userPrefs = convertPrefsArray(rawPrefs);
-
-            const res = await fetch(
-                `/pair?time_min=${encodeURIComponent(nowISO)}&time_max=${encodeURIComponent(laterISO)}`
-            );
-
-            if (!res.ok) {
-                const overview = $("overview");
-                if (overview) overview.textContent = "Error fetching data";
-                return;
-            }
-
-            const data = await res.json();
-            busyDataA = data.account_a || { busy: [] };
-            busyDataB = data.account_b || { busy: [] };
-            combinedBusy = data.combined_busy || [];
-
-            const durationSelect = $("durationMinutes");
-            const durationMinutes = durationSelect ? Number(durationSelect.value) : 30;
-            const matchRes = await fetch("/matching/options", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    time_min: nowISO,
-                    time_max: laterISO,
-                    duration_minutes: durationMinutes,
-                    allowed_windows: userPrefs,
-                    max_options: 3,
-                }),
-            });
-
-            if (matchRes.ok) {
-                const matchData = await matchRes.json();
-                suggestedSlots = matchData.options || [];
-            } else {
-                // Fallback to client-side free gaps if the matching endpoint is unavailable.
-                suggestedSlots = [];
-                let last = nowISO;
-
-                combinedBusy
-                    .slice()
-                    .sort((x, y) => String(x.start).localeCompare(String(y.start)))
-                    .forEach((b) => {
-                        if (b.start > last) suggestedSlots.push({ start: last, end: b.start });
-                        if (b.end > last) last = b.end;
-                    });
-
-                if (last < laterISO) suggestedSlots.push({ start: last, end: laterISO });
-
-                if (userPrefs.length) {
-                    suggestedSlots = suggestedSlots.filter((s) => inPref(s.start, userPrefs));
-                }
-            }
-
-            // Initialize calendar display
-            currentDisplayDate = new Date(now);
-            showCalendarA = true;
-            showCalendarB = true;
-
-            const calendarContainer = $("calendarContainer");
-            if (calendarContainer) calendarContainer.style.display = "block";
-
-            renderCalendarGrid(currentDisplayDate);
-            renderSuggestedSlots();
-
-            // Raw data for reference
-            const overview = $("overview");
-            if (overview) {
-                let rawHtml = "<h2>Raw API Response Data</h2>";
-                rawHtml += "<details><summary>Click to expand raw data</summary>";
-                rawHtml += `<h3>Account A (${data?.account_a?.email || "unknown"})</h3>`;
-                rawHtml += `<pre>${JSON.stringify(data?.account_a?.busy || [], null, 2)}</pre>`;
-                rawHtml += `<h3>Account B (${data?.account_b?.email || "unknown"})</h3>`;
-                rawHtml += `<pre>${JSON.stringify(data?.account_b?.busy || [], null, 2)}</pre>`;
-                rawHtml += "<h3>Combined Busy Periods</h3>";
-                rawHtml += `<pre>${JSON.stringify(data?.combined_busy || [], null, 2)}</pre>`;
-                rawHtml += "</details>";
-                overview.innerHTML = rawHtml;
-            }
-        };
-    }
-
-    // -----------------------------
-    // Boot
-    // -----------------------------
     populateTimeSelects();
+    setDefaultDates();
     initAuthCallbackBanner();
-    loadCurrentUser()
-        .then((user) => {
-            if (user) return loadAccounts();
-            return null;
-        })
-        .catch(() => setSessionUi(null));
+    loadAccounts().catch(() => { });
 });

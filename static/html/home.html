@@ -1,119 +1,121 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Calendar Matching</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Calendar Matching · Find time privately</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-    <div id="health" title="health"></div>
-    <header id="appHeader">
-        <h1>Calendar Matching</h1>
-        <details id="userMenu">
-            <summary id="userMenuName">Loading...</summary>
-            <button class="btn" id="logoutBtn">Log out</button>
-        </details>
-    </header>
-
-    <button class="btn" id="authA">Authenticate user A</button>
-    <button class="btn" id="authB">Authenticate user B</button>
-    <div id="emails"></div>
-
-    <div id="accountSelectors">
-        <h3>Choose accounts</h3>
-        <select id="selectA">
-            <option value="a">Account A</option>
-        </select>
-        <select id="selectB">
-            <option value="b">Account B</option>
-        </select>
-    </div>
-
-    <div id="prefs">
-        <h3>Meeting Request</h3>
-        <label for="durationMinutes">Duration:</label>
-        <select id="durationMinutes">
-            <option value="30">30 minutes</option>
-            <option value="45">45 minutes</option>
-            <option value="60">60 minutes</option>
-            <option value="90">90 minutes</option>
-        </select>
-
-        <h3>Availability Preferences (per day)</h3>
-        <table id="prefsTable">
-            <thead>
-                <tr>
-                    <th>Day</th>
-                    <th>Include</th>
-                    <th>From</th>
-                    <th>To</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>Sun</td>
-                    <td><input type="checkbox" data-day="Sun"></td>
-                    <td><select class="start"></select></td>
-                    <td><select class="end"></select></td>
-                </tr>
-                <tr>
-                    <td>Mon</td>
-                    <td><input type="checkbox" data-day="Mon"></td>
-                    <td><select class="start"></select></td>
-                    <td><select class="end"></select></td>
-                </tr>
-                <tr>
-                    <td>Tue</td>
-                    <td><input type="checkbox" data-day="Tue"></td>
-                    <td><select class="start"></select></td>
-                    <td><select class="end"></select></td>
-                </tr>
-                <tr>
-                    <td>Wed</td>
-                    <td><input type="checkbox" data-day="Wed"></td>
-                    <td><select class="start"></select></td>
-                    <td><select class="end"></select></td>
-                </tr>
-                <tr>
-                    <td>Thu</td>
-                    <td><input type="checkbox" data-day="Thu"></td>
-                    <td><select class="start"></select></td>
-                    <td><select class="end"></select></td>
-                </tr>
-                <tr>
-                    <td>Fri</td>
-                    <td><input type="checkbox" data-day="Fri"></td>
-                    <td><select class="start"></select></td>
-                    <td><select class="end"></select></td>
-                </tr>
-                <tr>
-                    <td>Sat</td>
-                    <td><input type="checkbox" data-day="Sat"></td>
-                    <td><select class="start"></select></td>
-                    <td><select class="end"></select></td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
-    <button class="btn" id="toggleA">Show/hide calendar A</button>
-    <button class="btn" id="toggleB">Show/hide calendar B</button>
-    <button class="btn" id="findBtn">Find matching times</button>
-
-    <!-- Calendar Navigation & Display -->
-    <div id="calendarContainer" style="display:none;">
-        <div id="calendarNav">
-            <button class="navBtn" id="prevDay">← Previous</button>
-            <span id="currentDate" style="margin: 0 1rem; font-weight: bold;"></span>
-            <button class="navBtn" id="nextDay">Next →</button>
+    <div id="health" title="API health"></div>
+    <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/">Calendar Matching</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="mainNav">
+                <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
+                    <li class="nav-item"><a class="nav-link" href="/dashboard">Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/requests/new">New request</a></li>
+                    <li class="nav-item"><a class="nav-link" href="/account">Account</a></li>
+                    <li class="nav-item"><a class="btn btn-primary" href="/login">Log in</a></li>
+                </ul>
+            </div>
         </div>
+    </nav>
 
-        <div id="calendarGrid"></div>
-        <div id="suggestedSlots"></div>
-    </div>
+    <main>
+        <section class="hero-section py-5 py-lg-6">
+            <div class="container">
+                <div class="row align-items-center g-5">
+                    <div class="col-lg-6">
+                        <span class="badge rounded-pill text-bg-success-subtle text-success-emphasis mb-3">Privacy-first availability matching</span>
+                        <h1 class="display-5 fw-bold lh-sm">Find a meeting time without exposing your calendar.</h1>
+                        <p class="lead text-secondary mt-3">Connect calendars, invite someone, and get the best shared options. Other people see availability only, never event titles or private details.</p>
+                        <div class="d-flex flex-column flex-sm-row gap-3 mt-4">
+                            <a class="btn btn-primary btn-lg" href="/requests/new">Create meeting request</a>
+                            <a class="btn btn-outline-primary btn-lg" href="/invite/demo-token">I have an invite link</a>
+                        </div>
+                        <div class="privacy-note d-flex gap-3 align-items-start mt-4 p-3 rounded-4">
+                            <div class="privacy-icon" aria-hidden="true">🔒</div>
+                            <p class="mb-0 small">We only use free/busy availability. Other participants do not see your event titles, descriptions, attendees, locations, or calendar names.</p>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="card border-0 shadow-sm rounded-5 overflow-hidden">
+                            <div class="card-body p-4 p-lg-5">
+                                <div class="d-flex align-items-center justify-content-between mb-4">
+                                    <div>
+                                        <p class="text-uppercase text-secondary small fw-semibold mb-1">Suggested options</p>
+                                        <h2 class="h4 mb-0">Strategy check-in</h2>
+                                    </div>
+                                    <span class="badge text-bg-warning">Waiting for invitee</span>
+                                </div>
+                                <div class="row g-3 mb-4">
+                                    <div class="col-12 col-sm-4">
+                                        <div class="option-preview best">
+                                            <span class="small fw-semibold">Best option</span>
+                                            <strong>Tue 09:30</strong>
+                                            <small>Both free</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-sm-4">
+                                        <div class="option-preview">
+                                            <span class="small fw-semibold">Option 2</span>
+                                            <strong>Wed 14:00</strong>
+                                            <small>Preferred hours</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 col-sm-4">
+                                        <div class="option-preview">
+                                            <span class="small fw-semibold">Option 3</span>
+                                            <strong>Fri 11:00</strong>
+                                            <small>No conflicts</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="availability-demo" aria-label="Anonymized busy blocks example">
+                                    <div class="time-row"><span>09:00</span><div class="free-block">Suggested</div></div>
+                                    <div class="time-row"><span>10:00</span><div class="busy-block own">Your calendar</div></div>
+                                    <div class="time-row"><span>11:00</span><div class="busy-block other">Other person: Busy</div></div>
+                                    <div class="time-row"><span>12:00</span><div class="free-block muted">Available</div></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-    <!-- Raw Data Display -->
-    <div id="overview"></div>
+        <section class="py-5 bg-white border-top">
+            <div class="container">
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="feature-card h-100">
+                            <h2 class="h5">1. Connect calendars</h2>
+                            <p class="text-secondary mb-0">Google Calendar works in the prototype. Microsoft Calendar has a clear placeholder for a future provider.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="feature-card h-100">
+                            <h2 class="h5">2. Create a focused request</h2>
+                            <p class="text-secondary mb-0">Set title, invitee, duration, date range, weekdays, time windows, and ranking preferences.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="feature-card h-100">
+                            <h2 class="h5">3. Pick from top three</h2>
+                            <p class="text-secondary mb-0">The UI emphasizes the best options instead of exposing full calendars.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/static/js/app.js"></script>
 </body>
 </html>

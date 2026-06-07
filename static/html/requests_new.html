@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Create request · Calendar Matching</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div id="health" title="API health"></div>
+    <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
+        <div class="container"><a class="navbar-brand fw-bold" href="/">Calendar Matching</a><div class="ms-auto d-flex gap-2"><a class="btn btn-outline-primary" href="/dashboard">Dashboard</a><a class="btn btn-outline-primary" href="/account">Account</a></div></div>
+    </nav>
+
+    <main class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-xl-10">
+                <div class="page-heading mb-4 text-center">
+                    <p class="text-uppercase small fw-semibold text-primary mb-1">Create meeting request</p>
+                    <h1 class="fw-bold">Define constraints and find the top three options</h1>
+                    <p class="text-secondary">This page keeps the working Google Calendar prototype and shapes it like the planned request wizard.</p>
+                </div>
+
+                <div class="card shadow-sm rounded-5 mb-4">
+                    <div class="card-body p-4 p-lg-5">
+                        <div class="stepper mb-4" aria-label="Request creation steps">
+                            <span class="active">1 Basics</span><span class="active">2 Dates</span><span class="active">3 Rules</span><span>4 Review</span>
+                        </div>
+
+                        <div class="row g-4">
+                            <div class="col-lg-6">
+                                <h2 class="h4">Step 1 · Meeting basics</h2>
+                                <div class="mb-3"><label class="form-label" for="requestTitle">Title</label><input id="requestTitle" class="form-control" value="Product planning sync" placeholder="e.g. Product planning sync"></div>
+                                <div class="mb-3"><label class="form-label" for="inviteeEmail">Invitee email</label><input id="inviteeEmail" type="email" class="form-control" placeholder="invitee@example.com"></div>
+                                <div class="mb-3"><label class="form-label" for="durationMinutes">Duration</label><select id="durationMinutes" class="form-select"><option value="30">30 minutes</option><option value="45">45 minutes</option><option value="60">60 minutes</option><option value="90">90 minutes</option></select></div>
+                                <div class="mb-3"><label class="form-label" for="requestNotes">Notes placeholder</label><textarea id="requestNotes" class="form-control" rows="3" placeholder="Optional description, location, or video-call preference"></textarea></div>
+                            </div>
+                            <div class="col-lg-6">
+                                <h2 class="h4">Step 2 · Date range</h2>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-sm-6"><label class="form-label" for="earliestDate">Earliest date</label><input id="earliestDate" type="date" class="form-control"></div>
+                                    <div class="col-sm-6"><label class="form-label" for="latestDate">Latest date</label><input id="latestDate" type="date" class="form-control"></div>
+                                </div>
+                                <label class="form-label" for="timezone">Timezone</label><input id="timezone" class="form-control mb-3" value="Browser timezone placeholder" aria-describedby="timezoneHelp"><div id="timezoneHelp" class="form-text mb-3">The working matcher uses UTC for now; future backend responses should include request timezone.</div>
+
+                                <h2 class="h4 mt-4">Step 3 · Availability rules</h2>
+                                <div class="weekday-selector mb-3" role="group" aria-label="Allowed weekdays">
+                                    <input class="btn-check weekday-input" type="checkbox" id="dayMon" data-day="Mon" checked><label class="btn btn-outline-primary" for="dayMon">Mon</label>
+                                    <input class="btn-check weekday-input" type="checkbox" id="dayTue" data-day="Tue" checked><label class="btn btn-outline-primary" for="dayTue">Tue</label>
+                                    <input class="btn-check weekday-input" type="checkbox" id="dayWed" data-day="Wed" checked><label class="btn btn-outline-primary" for="dayWed">Wed</label>
+                                    <input class="btn-check weekday-input" type="checkbox" id="dayThu" data-day="Thu" checked><label class="btn btn-outline-primary" for="dayThu">Thu</label>
+                                    <input class="btn-check weekday-input" type="checkbox" id="dayFri" data-day="Fri" checked><label class="btn btn-outline-primary" for="dayFri">Fri</label>
+                                    <input class="btn-check weekday-input" type="checkbox" id="daySat" data-day="Sat"><label class="btn btn-outline-primary" for="daySat">Sat</label>
+                                    <input class="btn-check weekday-input" type="checkbox" id="daySun" data-day="Sun"><label class="btn btn-outline-primary" for="daySun">Sun</label>
+                                </div>
+                                <div class="row g-3">
+                                    <div class="col-6"><label class="form-label" for="windowStart">Between</label><input id="windowStart" type="time" class="form-control" value="09:00"></div>
+                                    <div class="col-6"><label class="form-label" for="windowEnd">And</label><input id="windowEnd" type="time" class="form-control" value="17:00"></div>
+                                </div>
+                                <button class="btn btn-link px-0 mt-2 disabled" type="button" aria-disabled="true">+ Add another time window placeholder</button>
+                            </div>
+                        </div>
+
+                        <div class="d-flex flex-column flex-md-row gap-3 justify-content-between align-items-md-center border-top pt-4 mt-4">
+                            <div class="small text-secondary">Prototype requirement: connect both calendar slots before matching. Future flow creates an invite link or sends a request.</div>
+                            <button class="btn btn-primary btn-lg" id="findBtn">Find best options</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="accountSelectors" class="card shadow-sm rounded-4 mb-4">
+                    <div class="card-body p-4">
+                        <h2 class="h5">Prototype account selectors</h2>
+                        <p class="text-secondary">Choose which connected Google accounts fill requester and invitee slots.</p>
+                        <div class="row g-3">
+                            <div class="col-md-6"><label class="form-label" for="selectA">Requester slot</label><select id="selectA" class="form-select"><option value="a">Account A</option></select></div>
+                            <div class="col-md-6"><label class="form-label" for="selectB">Invitee slot</label><select id="selectB" class="form-select"><option value="b">Account B</option></select></div>
+                        </div>
+                        <div class="d-flex gap-2 mt-3"><a class="btn btn-outline-primary" href="/account">Connect calendars</a><div id="emails" class="small text-secondary align-self-center"></div></div>
+                    </div>
+                </div>
+
+                <section id="optionCards" class="row g-3 mb-4" aria-live="polite">
+                    <div class="col-12"><div class="empty-state rounded-4 p-4 text-center">Top three option cards will appear here after matching.</div></div>
+                </section>
+
+                <section id="calendarContainer" class="card shadow-sm rounded-4" style="display:none;">
+                    <div class="card-body p-4">
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+                            <div><h2 class="h4 mb-1">Availability preview</h2><p class="text-secondary mb-0">Other participant blocks are intentionally labeled only as Busy.</p></div>
+                            <div id="calendarNav" class="btn-group"><button class="btn btn-outline-secondary" id="prevDay">← Previous</button><span id="currentDate" class="btn btn-light disabled"></span><button class="btn btn-outline-secondary" id="nextDay">Next →</button></div>
+                        </div>
+                        <div class="d-flex gap-2 mb-3"><button class="btn btn-outline-primary btn-sm" id="toggleA">Show/hide requester</button><button class="btn btn-outline-primary btn-sm" id="toggleB">Show/hide invitee</button></div>
+                        <div id="suggestedSlots"></div>
+                        <div class="calendar-scroll"><div id="calendarGrid"></div></div>
+                    </div>
+                </section>
+
+                <div id="overview" class="mt-4"></div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

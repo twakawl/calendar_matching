@@ -657,34 +657,58 @@ async def health():
     return {"status": "healthy"}
 
 
-def _current_user_from_token(token: Optional[str]) -> Optional[User]:
-    """Return a user for a session token, or None when absent/invalid."""
-    if not token:
-        return None
-
-    db = SessionLocal()
-    try:
-        user = SQLiteIdentityRepository(db).get_user_by_session_token(token)
-        if user:
-            db.expunge(user)
-        return user
-    finally:
-        db.close()
-
-
-def _current_user_from_request(request: Request) -> Optional[User]:
-    """Return the current cookie-authenticated user for page routing."""
-    return _current_user_from_token(request.cookies.get(SESSION_COOKIE_NAME))
+def _serve_html(filename: str) -> HTMLResponse:
+    """Serve a static HTML page from the prototype frontend directory."""
+    template_path = SysPath(__file__).parent / "static" / "html" / filename
+    return HTMLResponse(content=template_path.read_text(), status_code=200)
 
 
 @app.get("/", response_class=HTMLResponse)
-async def home(request: Request):
-    """Serve the app shell only to authenticated users."""
-    if not _current_user_from_request(request):
-        return RedirectResponse(url="/login", status_code=303)
+async def home(request: Optional[str] = None):
+    """Serve the product landing page."""
+    return _serve_html("home.html")
 
-    template_path = SysPath(__file__).parent / "static" / "html" / "home.html"
-    return HTMLResponse(content=template_path.read_text(), status_code=200)
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page():
+    """Serve the login and calendar connection page."""
+    return _serve_html("login.html")
+
+
+@app.get("/account", response_class=HTMLResponse)
+async def account_page():
+    """Serve the account and calendar connection page."""
+    return _serve_html("account.html")
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard_page():
+    """Serve the meeting request dashboard placeholder page."""
+    return _serve_html("dashboard.html")
+
+
+@app.get("/requests/new", response_class=HTMLResponse)
+async def new_request_page():
+    """Serve the request creation and matching prototype page."""
+    return _serve_html("requests_new.html")
+
+
+@app.get("/invite/{token}", response_class=HTMLResponse)
+async def invite_page(token: str):
+    """Serve the invite landing page placeholder for a request token."""
+    return _serve_html("invite.html")
+
+
+@app.get("/requests/{request_id}", response_class=HTMLResponse)
+async def request_detail_page(request_id: str):
+    """Serve the request detail placeholder page."""
+    return _serve_html("request_detail.html")
+
+
+@app.get("/requests/{request_id}/availability", response_class=HTMLResponse)
+async def availability_page(request_id: str):
+    """Serve the privacy-safe availability preview placeholder page."""
+    return _serve_html("availability.html")
 
 
 @app.get("/login", response_class=HTMLResponse)
@@ -933,8 +957,9 @@ async def oauth_callback(code: str = Query(...), state: str = Query(...)):
         finally:
             db.close()
 
-        # redirect back to home with params for UI display
-        redirect_url = f"/?account_label={account_label}&email={email}"
+        # Redirect back to the account page so the new templates show connection status
+        # and the user can immediately connect the second calendar slot if needed.
+        redirect_url = f"/account?account_label={account_label}&email={email}"
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:
