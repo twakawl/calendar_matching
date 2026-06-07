@@ -577,8 +577,9 @@ async def oauth_callback(code: str = Query(...), state: str = Query(...)):
         finally:
             db.close()
 
-        # redirect back to home with params for UI display
-        redirect_url = f"/?account_label={account_label}&email={email}"
+        # Redirect back to the account page so the new templates show connection status
+        # and the user can immediately connect the second calendar slot if needed.
+        redirect_url = f"/account?account_label={account_label}&email={email}"
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:

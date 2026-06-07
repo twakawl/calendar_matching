@@ -134,7 +134,7 @@ uv run python tests/test_verify_setup.py
 Run the deployment, matching, and prototype UI regression tests when changing application behavior:
 
 ```bash
-uv run python -m unittest tests.test_matching_options tests.test_deployment_config tests.test_ui_routes
+uv run python -m unittest tests.test_matching_options tests.test_deployment_config tests.test_ui_routes tests.test_ui_functionality_contract
 ```
 
 Expected successful summary:
