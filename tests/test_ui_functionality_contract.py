@@ -12,16 +12,23 @@ class UiFunctionalityContractTest(unittest.TestCase):
     def test_account_page_keeps_oauth_button_ids_used_by_javascript(self):
         """Calendar connection buttons must keep the IDs wired in app.js."""
         account_html = (HTML_DIR / "account.html").read_text()
+
+        self.assertIn('id="authA"', account_html)
+        self.assertIn('id="authB"', account_html)
+        self.assertIn('id="statusA"', account_html)
+        self.assertIn('id="statusB"', account_html)
+        self.assertIn('id="emailA"', account_html)
+        self.assertIn('id="emailB"', account_html)
+
+    def test_login_page_keeps_first_party_auth_form_contract(self):
+        """The login page should start with app authentication, not calendar slots."""
         login_html = (HTML_DIR / "login.html").read_text()
 
-        for html in (account_html, login_html):
-            with self.subTest(page="account_or_login"):
-                self.assertIn('id="authA"', html)
-                self.assertIn('id="authB"', html)
-                self.assertIn('id="statusA"', html)
-                self.assertIn('id="statusB"', html)
-                self.assertIn('id="emailA"', html)
-                self.assertIn('id="emailB"', html)
+        self.assertIn('id="authEmail"', login_html)
+        self.assertIn('id="authPassword"', login_html)
+        self.assertIn('id="loginBtn"', login_html)
+        self.assertIn('id="registerBtn"', login_html)
+        self.assertNotIn('id="authA"', login_html)
 
     def test_request_creation_page_keeps_matching_form_contract(self):
         """The live matching flow depends on stable form, result, and grid IDs."""
@@ -34,6 +41,8 @@ class UiFunctionalityContractTest(unittest.TestCase):
             "windowStart",
             "windowEnd",
             "findBtn",
+            "saveRequestBtn",
+            "requestSaveStatus",
             "selectA",
             "selectB",
             "optionCards",

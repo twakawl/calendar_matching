@@ -10,9 +10,14 @@ document.addEventListener("DOMContentLoaded", () => {
         status.className = isError ? "errorText" : "";
     }
 
+    function nextUrl() {
+        const next = new URLSearchParams(window.location.search).get("next");
+        return next && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
+    }
+
     async function redirectIfLoggedIn() {
         const res = await fetch("/auth/me");
-        if (res.ok) window.location.replace("/");
+        if (res.ok) window.location.replace(nextUrl());
     }
 
     async function submitAuth(mode) {
@@ -33,7 +38,7 @@ document.addEventListener("DOMContentLoaded", () => {
             setStatus(error.detail || "Authentication failed", true);
             return;
         }
-        window.location.replace("/");
+        window.location.replace(nextUrl());
     }
 
     $("loginBtn")?.addEventListener("click", () => submitAuth("login"));

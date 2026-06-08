@@ -29,7 +29,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from matching import find_matching_options
-from sqlalchemy import create_engine, Column, String, DateTime, text
+from sqlalchemy import create_engine, Column, String, DateTime, Integer, text
 from sqlalchemy.orm import declarative_base, Session, sessionmaker
 from cryptography.fernet import Fernet
 from dotenv import load_dotenv
@@ -177,6 +177,47 @@ class OAuthState(Base):
     used_at = Column(DateTime, nullable=True)
 
 
+class MeetingRequest(Base):
+    """SQLite-backed meeting request draft for the MVP frontend workflow."""
+
+    __tablename__ = "meeting_requests"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    owner_user_id = Column(String, nullable=False, index=True)
+    title = Column(String, nullable=False)
+    invitee_email = Column(String, nullable=False)
+    duration_minutes = Column(Integer, nullable=False, default=30)
+    earliest_date = Column(String, nullable=False)
+    latest_date = Column(String, nullable=False)
+    timezone = Column(String, nullable=False, default="UTC")
+    window_start = Column(String, nullable=False, default="09:00")
+    window_end = Column(String, nullable=False, default="17:00")
+    allowed_weekdays = Column(String, nullable=False, default="[]")
+    notes = Column(String, nullable=True)
+    status = Column(String, nullable=False, default="draft")
+    invite_token_hash = Column(String, nullable=True, unique=True, index=True)
+    invite_expires_at = Column(DateTime, nullable=True)
+    invite_opened_at = Column(DateTime, nullable=True)
+    invite_accepted_at = Column(DateTime, nullable=True)
+    invite_declined_at = Column(DateTime, nullable=True)
+    invitee_user_id = Column(String, nullable=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class RequestAuditEvent(Base):
+    """Append-only audit event for meeting request lifecycle changes."""
+
+    __tablename__ = "request_audit_events"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    request_id = Column(String, nullable=False, index=True)
+    actor_user_id = Column(String, nullable=True, index=True)
+    action = Column(String, nullable=False)
+    details = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 Base.metadata.create_all(bind=engine)
 
 
@@ -195,6 +236,33 @@ def _run_lightweight_migrations() -> None:
                 text("ALTER TABLE google_accounts ADD COLUMN owner_user_id VARCHAR")
             )
 
+        request_tables = {
+            row[0]
+            for row in connection.execute(
+                text("SELECT name FROM sqlite_master WHERE type='table'")
+            )
+        }
+        if "meeting_requests" in request_tables:
+            request_columns = {
+                row[1]
+                for row in connection.execute(text("PRAGMA table_info(meeting_requests)"))
+            }
+            additive_columns = {
+                "invite_token_hash": "VARCHAR",
+                "invite_expires_at": "DATETIME",
+                "invite_opened_at": "DATETIME",
+                "invite_accepted_at": "DATETIME",
+                "invite_declined_at": "DATETIME",
+                "invitee_user_id": "VARCHAR",
+            }
+            for column_name, column_type in additive_columns.items():
+                if column_name not in request_columns:
+                    connection.execute(
+                        text(
+                            f"ALTER TABLE meeting_requests ADD COLUMN {column_name} {column_type}"
+                        )
+                    )
+
 
 _run_lightweight_migrations()
 
@@ -205,6 +273,7 @@ _run_lightweight_migrations()
 
 SESSION_COOKIE_NAME = "calendar_matching_session"
 SESSION_DURATION_DAYS = int(os.getenv("SESSION_DURATION_DAYS", "14"))
+INVITE_DURATION_DAYS = int(os.getenv("INVITE_DURATION_DAYS", "14"))
 PASSWORD_HASH_ITERATIONS = 260_000
 
 
@@ -243,6 +312,11 @@ def _verify_password(password: str, stored_hash: str) -> bool:
 
 def _hash_session_token(token: str) -> str:
     """Hash a session token before lookup/storage."""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _hash_invite_token(token: str) -> str:
+    """Hash an invite token so only a non-reversible digest is stored."""
     return hashlib.sha256(token.encode()).hexdigest()
 
 
@@ -329,6 +403,23 @@ class SQLiteIdentityRepository:
         self.db.add(session)
         self.db.commit()
         return True
+
+
+def _current_user_from_token(token: str) -> Optional[User]:
+    """Resolve a bearer/cookie token to a user, if the session is still valid."""
+    db = SessionLocal()
+    try:
+        return SQLiteIdentityRepository(db).get_user_by_session_token(token)
+    finally:
+        db.close()
+
+
+def _current_user_from_request(request: Request) -> Optional[User]:
+    """Resolve the current user from the browser session cookie for page routing."""
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not token:
+        return None
+    return _current_user_from_token(token)
 
 
 def require_current_user(
@@ -598,6 +689,63 @@ class AuthResponse(BaseModel):
     expires_at: datetime
 
 
+class MeetingRequestCreate(BaseModel):
+    title: str
+    invitee_email: str
+    duration_minutes: int = 30
+    earliest_date: str
+    latest_date: str
+    timezone: str = "UTC"
+    window_start: str = "09:00"
+    window_end: str = "17:00"
+    allowed_weekdays: list[str] = Field(default_factory=list)
+    notes: Optional[str] = None
+
+
+class MeetingRequestResponse(MeetingRequestCreate):
+    id: str
+    status: str
+    invite_url: Optional[str] = None
+    invite_expires_at: Optional[datetime] = None
+    invite_opened_at: Optional[datetime] = None
+    invite_accepted_at: Optional[datetime] = None
+    invite_declined_at: Optional[datetime] = None
+    invitee_user_id: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class InvitePreviewResponse(BaseModel):
+    request_id: str
+    title: str
+    requester_email: str
+    invitee_email: str
+    duration_minutes: int
+    earliest_date: str
+    latest_date: str
+    timezone: str
+    window_start: str
+    window_end: str
+    allowed_weekdays: list[str]
+    status: str
+    expires_at: datetime
+
+
+class InviteActionResponse(BaseModel):
+    request_id: str
+    status: str
+    message: str
+
+
+class AuditEventResponse(BaseModel):
+    id: str
+    request_id: str
+    actor_user_id: Optional[str] = None
+    action: str
+    details: Optional[str] = None
+    created_at: datetime
+
+
 class FreeBusyResponse(BaseModel):
     account_label: str
     email: str
@@ -664,33 +812,42 @@ def _serve_html(filename: str) -> HTMLResponse:
 
 
 @app.get("/", response_class=HTMLResponse)
-async def home(request: Optional[str] = None):
-    """Serve the product landing page."""
+async def home():
+    """Serve the public informational landing page."""
     return _serve_html("home.html")
 
 
+def _serve_authenticated_html(request: Request, filename: str) -> HTMLResponse:
+    """Serve an app page only when the browser has a valid session cookie."""
+    if not _current_user_from_request(request):
+        return RedirectResponse(url="/login", status_code=303)
+    return _serve_html(filename)
+
+
 @app.get("/login", response_class=HTMLResponse)
-async def login_page():
-    """Serve the login and calendar connection page."""
+async def login_page(request: Request):
+    """Serve the standalone login page for unauthenticated users."""
+    if _current_user_from_request(request):
+        return RedirectResponse(url="/dashboard", status_code=303)
     return _serve_html("login.html")
 
 
 @app.get("/account", response_class=HTMLResponse)
-async def account_page():
+async def account_page(request: Request):
     """Serve the account and calendar connection page."""
-    return _serve_html("account.html")
+    return _serve_authenticated_html(request, "account.html")
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard_page():
-    """Serve the meeting request dashboard placeholder page."""
-    return _serve_html("dashboard.html")
+async def dashboard_page(request: Request):
+    """Serve the meeting request dashboard page."""
+    return _serve_authenticated_html(request, "dashboard.html")
 
 
 @app.get("/requests/new", response_class=HTMLResponse)
-async def new_request_page():
+async def new_request_page(request: Request):
     """Serve the request creation and matching prototype page."""
-    return _serve_html("requests_new.html")
+    return _serve_authenticated_html(request, "requests_new.html")
 
 
 @app.get("/invite/{token}", response_class=HTMLResponse)
@@ -700,25 +857,15 @@ async def invite_page(token: str):
 
 
 @app.get("/requests/{request_id}", response_class=HTMLResponse)
-async def request_detail_page(request_id: str):
+async def request_detail_page(request_id: str, request: Request):
     """Serve the request detail placeholder page."""
-    return _serve_html("request_detail.html")
+    return _serve_authenticated_html(request, "request_detail.html")
 
 
 @app.get("/requests/{request_id}/availability", response_class=HTMLResponse)
-async def availability_page(request_id: str):
+async def availability_page(request_id: str, request: Request):
     """Serve the privacy-safe availability preview placeholder page."""
-    return _serve_html("availability.html")
-
-
-@app.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
-    """Serve the standalone login page for unauthenticated users."""
-    if _current_user_from_request(request):
-        return RedirectResponse(url="/", status_code=303)
-
-    template_path = SysPath(__file__).parent / "static" / "html" / "login.html"
-    return HTMLResponse(content=template_path.read_text(), status_code=200)
+    return _serve_authenticated_html(request, "availability.html")
 
 
 def _user_response(user: User) -> UserResponse:
@@ -809,6 +956,337 @@ async def logout_user(
 async def get_me(current_user: User = Depends(require_current_user)):
     """Return the currently authenticated user."""
     return _user_response(current_user)
+
+
+def _allowed_weekdays_for(record: MeetingRequest) -> list[str]:
+    """Decode allowed weekdays from the JSON column used by the prototype."""
+    try:
+        value = json.loads(record.allowed_weekdays or "[]")
+        return value if isinstance(value, list) else []
+    except json.JSONDecodeError:
+        return []
+
+
+def _meeting_request_response(
+    record: MeetingRequest, invite_token: Optional[str] = None
+) -> MeetingRequestResponse:
+    """Serialize a stored meeting request for the frontend."""
+    return MeetingRequestResponse(
+        id=record.id,
+        title=record.title,
+        invitee_email=record.invitee_email,
+        duration_minutes=record.duration_minutes,
+        earliest_date=record.earliest_date,
+        latest_date=record.latest_date,
+        timezone=record.timezone,
+        window_start=record.window_start,
+        window_end=record.window_end,
+        allowed_weekdays=_allowed_weekdays_for(record),
+        notes=record.notes,
+        status=record.status,
+        invite_url=f"/invite/{invite_token}" if invite_token else None,
+        invite_expires_at=record.invite_expires_at,
+        invite_opened_at=record.invite_opened_at,
+        invite_accepted_at=record.invite_accepted_at,
+        invite_declined_at=record.invite_declined_at,
+        invitee_user_id=record.invitee_user_id,
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
+
+
+def _audit_event(
+    db: Session,
+    request_id: str,
+    action: str,
+    actor_user_id: Optional[str] = None,
+    details: Optional[dict] = None,
+) -> RequestAuditEvent:
+    """Append a lifecycle audit event for request traceability."""
+    event = RequestAuditEvent(
+        id=str(uuid.uuid4()),
+        request_id=request_id,
+        actor_user_id=actor_user_id,
+        action=action,
+        details=json.dumps(details or {}),
+        created_at=datetime.utcnow(),
+    )
+    db.add(event)
+    return event
+
+
+def _issue_invite(record: MeetingRequest, db: Session, actor_user_id: str) -> str:
+    """Create or replace the secure invite token for a meeting request."""
+    token = secrets.token_urlsafe(32)
+    record.invite_token_hash = _hash_invite_token(token)
+    record.invite_expires_at = datetime.utcnow() + timedelta(days=INVITE_DURATION_DAYS)
+    record.status = "sent"
+    record.updated_at = datetime.utcnow()
+    db.add(record)
+    _audit_event(
+        db,
+        record.id,
+        "invite_generated",
+        actor_user_id,
+        {"expires_at": record.invite_expires_at.isoformat()},
+    )
+    return token
+
+
+def _request_visible_to_user(record: MeetingRequest, user: User) -> bool:
+    """Return whether a user can see a request after authentication."""
+    return (
+        record.owner_user_id == user.id
+        or record.invitee_user_id == user.id
+        or record.invitee_email == user.email
+    )
+
+
+def _get_visible_request_or_404(db: Session, request_id: str, user: User) -> MeetingRequest:
+    """Fetch a request and enforce requester/invitee authorization."""
+    record = db.query(MeetingRequest).filter_by(id=request_id).first()
+    if not record or not _request_visible_to_user(record, user):
+        raise HTTPException(status_code=404, detail="Meeting request not found")
+    return record
+
+
+def _requester_email_for(db: Session, record: MeetingRequest) -> str:
+    requester = db.query(User).filter_by(id=record.owner_user_id).first()
+    return requester.email if requester else "unknown requester"
+
+
+def _get_invite_record_or_404(db: Session, token: str) -> MeetingRequest:
+    """Resolve a raw invite token against its stored hash."""
+    token_hash = _hash_invite_token(token)
+    record = db.query(MeetingRequest).filter_by(invite_token_hash=token_hash).first()
+    if not record or not record.invite_expires_at:
+        raise HTTPException(status_code=404, detail="Invite not found")
+    if record.invite_expires_at <= datetime.utcnow():
+        raise HTTPException(status_code=410, detail="Invite has expired")
+    return record
+
+
+def _validate_meeting_request_payload(payload: MeetingRequestCreate) -> None:
+    """Validate the request fields that are currently persisted by SQLite."""
+    if not payload.title.strip():
+        raise HTTPException(status_code=400, detail="Meeting title is required")
+    try:
+        _normalize_email(payload.invitee_email)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="A valid invitee email is required") from exc
+    if payload.duration_minutes not in {15, 30, 45, 60, 90, 120}:
+        raise HTTPException(status_code=400, detail="Duration must be a supported meeting length")
+    try:
+        earliest = datetime.fromisoformat(payload.earliest_date)
+        latest = datetime.fromisoformat(payload.latest_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Dates must use YYYY-MM-DD format") from exc
+    if latest < earliest:
+        raise HTTPException(status_code=400, detail="Latest date must be on or after earliest date")
+    if payload.window_start >= payload.window_end:
+        raise HTTPException(status_code=400, detail="Start time must be before end time")
+
+
+@app.get("/api/requests", response_model=list[MeetingRequestResponse], tags=["Meeting requests"])
+async def list_meeting_requests(current_user: User = Depends(require_current_user)):
+    """List meeting requests visible to the current requester or invitee."""
+    db = SessionLocal()
+    try:
+        records = (
+            db.query(MeetingRequest)
+            .filter(
+                (MeetingRequest.owner_user_id == current_user.id)
+                | (MeetingRequest.invitee_user_id == current_user.id)
+                | (MeetingRequest.invitee_email == current_user.email)
+            )
+            .order_by(MeetingRequest.created_at.desc())
+            .all()
+        )
+        return [_meeting_request_response(record) for record in records]
+    finally:
+        db.close()
+
+
+@app.post("/api/requests", response_model=MeetingRequestResponse, tags=["Meeting requests"])
+async def create_meeting_request(
+    payload: MeetingRequestCreate, current_user: User = Depends(require_current_user)
+):
+    """Create a SQLite-backed request draft and secure invite link."""
+    _validate_meeting_request_payload(payload)
+    now = datetime.utcnow()
+    record = MeetingRequest(
+        id=str(uuid.uuid4()),
+        owner_user_id=current_user.id,
+        title=payload.title.strip(),
+        invitee_email=_normalize_email(payload.invitee_email),
+        duration_minutes=payload.duration_minutes,
+        earliest_date=payload.earliest_date,
+        latest_date=payload.latest_date,
+        timezone=payload.timezone.strip() or "UTC",
+        window_start=payload.window_start,
+        window_end=payload.window_end,
+        allowed_weekdays=json.dumps(payload.allowed_weekdays),
+        notes=payload.notes.strip() if payload.notes else None,
+        status="draft",
+        created_at=now,
+        updated_at=now,
+    )
+    db = SessionLocal()
+    try:
+        db.add(record)
+        db.flush()
+        _audit_event(db, record.id, "created", current_user.id)
+        invite_token = _issue_invite(record, db, current_user.id)
+        db.commit()
+        db.refresh(record)
+        return _meeting_request_response(record, invite_token)
+    finally:
+        db.close()
+
+
+@app.get("/api/requests/{request_id}", response_model=MeetingRequestResponse, tags=["Meeting requests"])
+async def get_meeting_request(
+    request_id: str, current_user: User = Depends(require_current_user)
+):
+    """Return one request visible to the current requester or invitee."""
+    db = SessionLocal()
+    try:
+        record = _get_visible_request_or_404(db, request_id, current_user)
+        return _meeting_request_response(record)
+    finally:
+        db.close()
+
+
+@app.post("/api/requests/{request_id}/invite", response_model=MeetingRequestResponse, tags=["Meeting requests"])
+async def regenerate_request_invite(
+    request_id: str, current_user: User = Depends(require_current_user)
+):
+    """Regenerate a hard-to-guess invite link for a requester-owned request."""
+    db = SessionLocal()
+    try:
+        record = db.query(MeetingRequest).filter_by(id=request_id, owner_user_id=current_user.id).first()
+        if not record:
+            raise HTTPException(status_code=404, detail="Meeting request not found")
+        if record.status in {"agreed", "cancelled", "expired"}:
+            raise HTTPException(status_code=400, detail="Cannot regenerate invite for this request status")
+        invite_token = _issue_invite(record, db, current_user.id)
+        db.commit()
+        db.refresh(record)
+        return _meeting_request_response(record, invite_token)
+    finally:
+        db.close()
+
+
+@app.get("/api/requests/{request_id}/audit", response_model=list[AuditEventResponse], tags=["Meeting requests"])
+async def list_request_audit_events(
+    request_id: str, current_user: User = Depends(require_current_user)
+):
+    """Return lifecycle audit events for a visible request."""
+    db = SessionLocal()
+    try:
+        _get_visible_request_or_404(db, request_id, current_user)
+        events = (
+            db.query(RequestAuditEvent)
+            .filter_by(request_id=request_id)
+            .order_by(RequestAuditEvent.created_at.asc())
+            .all()
+        )
+        return [
+            AuditEventResponse(
+                id=event.id,
+                request_id=event.request_id,
+                actor_user_id=event.actor_user_id,
+                action=event.action,
+                details=event.details,
+                created_at=event.created_at,
+            )
+            for event in events
+        ]
+    finally:
+        db.close()
+
+
+@app.get("/api/invites/{token}", response_model=InvitePreviewResponse, tags=["Meeting requests"])
+async def preview_invite(token: str):
+    """Return non-sensitive request details for an unexpired invite token."""
+    db = SessionLocal()
+    try:
+        record = _get_invite_record_or_404(db, token)
+        if not record.invite_opened_at:
+            record.invite_opened_at = datetime.utcnow()
+            if record.status == "sent":
+                record.status = "opened"
+            record.updated_at = datetime.utcnow()
+            _audit_event(db, record.id, "opened", details={"source": "invite_preview"})
+            db.commit()
+            db.refresh(record)
+        return InvitePreviewResponse(
+            request_id=record.id,
+            title=record.title,
+            requester_email=_requester_email_for(db, record),
+            invitee_email=record.invitee_email,
+            duration_minutes=record.duration_minutes,
+            earliest_date=record.earliest_date,
+            latest_date=record.latest_date,
+            timezone=record.timezone,
+            window_start=record.window_start,
+            window_end=record.window_end,
+            allowed_weekdays=_allowed_weekdays_for(record),
+            status=record.status,
+            expires_at=record.invite_expires_at,
+        )
+    finally:
+        db.close()
+
+
+@app.post("/api/invites/{token}/accept", response_model=InviteActionResponse, tags=["Meeting requests"])
+async def accept_invite(token: str, current_user: User = Depends(require_current_user)):
+    """Accept an invite when the logged-in user's email matches the invitee."""
+    db = SessionLocal()
+    try:
+        record = _get_invite_record_or_404(db, token)
+        if record.invitee_email != current_user.email:
+            raise HTTPException(status_code=403, detail="This invite is for a different email address")
+        if record.invite_declined_at:
+            raise HTTPException(status_code=400, detail="This invite was already declined")
+        now = datetime.utcnow()
+        record.invitee_user_id = current_user.id
+        record.invite_accepted_at = now
+        record.status = "awaiting_calendar_connection"
+        record.updated_at = now
+        _audit_event(db, record.id, "accepted", current_user.id)
+        db.commit()
+        return InviteActionResponse(
+            request_id=record.id,
+            status=record.status,
+            message="Invite accepted. Connect your calendar before matching.",
+        )
+    finally:
+        db.close()
+
+
+@app.post("/api/invites/{token}/decline", response_model=InviteActionResponse, tags=["Meeting requests"])
+async def decline_invite(token: str, current_user: User = Depends(require_current_user)):
+    """Decline an invite when the logged-in user's email matches the invitee."""
+    db = SessionLocal()
+    try:
+        record = _get_invite_record_or_404(db, token)
+        if record.invitee_email != current_user.email:
+            raise HTTPException(status_code=403, detail="This invite is for a different email address")
+        now = datetime.utcnow()
+        record.invitee_user_id = current_user.id
+        record.invite_declined_at = now
+        record.status = "disagreed"
+        record.updated_at = now
+        _audit_event(db, record.id, "declined", current_user.id)
+        db.commit()
+        return InviteActionResponse(
+            request_id=record.id,
+            status=record.status,
+            message="Invite declined.",
+        )
+    finally:
+        db.close()
 
 
 @app.get("/oauth/start", tags=["OAuth"])
