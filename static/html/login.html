@@ -16,56 +16,23 @@
     <main class="container py-5">
         <div class="row justify-content-center">
             <div class="col-lg-9">
-                <div class="page-heading mb-4">
-                    <p class="text-uppercase small fw-semibold text-primary mb-1">Login / account</p>
-                    <h1 class="fw-bold">Log in and connect calendars</h1>
-                    <p class="text-secondary">Prototype account slots represent two authenticated users. Future login will replace these cards with first-party user accounts.</p>
+                <div class="page-heading mb-4 text-center">
+                    <p class="text-uppercase small fw-semibold text-primary mb-1">Welcome back</p>
+                    <h1 class="fw-bold">Log in to Calendar Matching</h1>
+                    <p class="text-secondary">Use one app account first, then connect Google calendars from the Account page.</p>
                 </div>
 
-                <div id="emails" class="mb-3"></div>
-
-                <div class="row g-4">
-                    <div class="col-md-6">
-                        <div class="card h-100 shadow-sm rounded-4">
-                            <div class="card-body p-4">
-                                <div class="d-flex justify-content-between align-items-start mb-3">
-                                    <div>
-                                        <h2 class="h4">Google Calendar · Slot A</h2>
-                                        <p class="text-secondary mb-0">Requester placeholder connection.</p>
-                                    </div>
-                                    <span id="statusA" class="badge text-bg-secondary">Not connected</span>
-                                </div>
-                                <p id="emailA" class="small text-secondary">No Google account connected yet.</p>
-                                <button class="btn btn-primary w-100" id="authA">Connect Google Calendar</button>
-                                <button class="btn btn-outline-danger w-100 mt-2 disabled" type="button" aria-disabled="true">Disconnect placeholder</button>
-                            </div>
+                <div class="card shadow-sm rounded-5 border-0">
+                    <div class="card-body p-4 p-lg-5">
+                        <div class="row g-3">
+                            <div class="col-md-6"><label class="form-label" for="authEmail">Email</label><input id="authEmail" type="email" class="form-control" autocomplete="email" placeholder="you@example.com"></div>
+                            <div class="col-md-6"><label class="form-label" for="authDisplayName">Display name</label><input id="authDisplayName" class="form-control" autocomplete="name" placeholder="Optional for registration"></div>
+                            <div class="col-12"><label class="form-label" for="authPassword">Password</label><input id="authPassword" type="password" class="form-control" autocomplete="current-password" placeholder="At least 8 characters"></div>
                         </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="card h-100 shadow-sm rounded-4">
-                            <div class="card-body p-4">
-                                <div class="d-flex justify-content-between align-items-start mb-3">
-                                    <div>
-                                        <h2 class="h4">Google Calendar · Slot B</h2>
-                                        <p class="text-secondary mb-0">Invitee placeholder connection.</p>
-                                    </div>
-                                    <span id="statusB" class="badge text-bg-secondary">Not connected</span>
-                                </div>
-                                <p id="emailB" class="small text-secondary">No Google account connected yet.</p>
-                                <button class="btn btn-primary w-100" id="authB">Connect Google Calendar</button>
-                                <button class="btn btn-outline-danger w-100 mt-2 disabled" type="button" aria-disabled="true">Disconnect placeholder</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12">
-                        <div class="card border-dashed rounded-4">
-                            <div class="card-body p-4 d-flex flex-column flex-md-row justify-content-between gap-3">
-                                <div>
-                                    <h2 class="h5">Microsoft Calendar</h2>
-                                    <p class="text-secondary mb-0">Future provider placeholder. Backend provider interfaces should allow Microsoft Graph support later.</p>
-                                </div>
-                                <span class="badge text-bg-light align-self-start">Coming later</span>
-                            </div>
+                        <div id="loginStatus" class="small mt-3" aria-live="polite"></div>
+                        <div class="d-flex flex-column flex-sm-row gap-2 mt-4">
+                            <button id="loginBtn" class="btn btn-primary btn-lg flex-fill" type="button">Log in</button>
+                            <button id="registerBtn" class="btn btn-outline-primary btn-lg flex-fill" type="button">Create account</button>
                         </div>
                     </div>
                 </div>
@@ -76,6 +43,6 @@
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/static/js/app.js"></script>
+    <script src="/static/js/login.js"></script>
 </body>
 </html>

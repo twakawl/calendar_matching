@@ -66,14 +66,20 @@ class AuthenticationApiTest(unittest.TestCase):
         self.assertEqual(after_logout.status_code, 401)
 
 
-    def test_home_redirects_to_login_when_unauthenticated(self):
+    def test_home_is_public_and_app_pages_redirect_when_unauthenticated(self):
         response = self.client.get("/", follow_redirects=False)
-        self.assertEqual(response.status_code, 303)
-        self.assertEqual(response.headers["location"], "/login")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Find a meeting time", response.text)
+        self.assertIn("/login", response.text)
+
+        protected = self.client.get("/dashboard", follow_redirects=False)
+        self.assertEqual(protected.status_code, 303)
+        self.assertEqual(protected.headers["location"], "/login")
 
         login_page = self.client.get("/login")
         self.assertEqual(login_page.status_code, 200)
         self.assertIn("Log in", login_page.text)
+        self.assertIn("authEmail", login_page.text)
         self.assertNotIn("Authenticate user A", login_page.text)
 
     def test_logged_in_user_sees_app_shell_and_menu_not_login_page(self):
@@ -88,13 +94,12 @@ class AuthenticationApiTest(unittest.TestCase):
 
         login_redirect = self.client.get("/login", follow_redirects=False)
         self.assertEqual(login_redirect.status_code, 303)
-        self.assertEqual(login_redirect.headers["location"], "/")
+        self.assertEqual(login_redirect.headers["location"], "/dashboard")
 
-        home = self.client.get("/")
-        self.assertEqual(home.status_code, 200)
-        self.assertIn("userMenuName", home.text)
-        self.assertIn("Authenticate user A", home.text)
-        self.assertNotIn("authEmail", home.text)
+        dashboard = self.client.get("/dashboard")
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertIn("requestList", dashboard.text)
+        self.assertNotIn("authEmail", dashboard.text)
 
     def test_calendar_accounts_require_authentication(self):
         response = self.client.get("/accounts")

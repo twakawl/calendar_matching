@@ -55,3 +55,14 @@ A logged-in user can create a meeting request and invite another user through a 
 - Secure link token hash and expiration.
 - Request constraints.
 - Request lifecycle history.
+
+## Current prototype slice
+
+- The FastAPI prototype now persists requester-owned request records in local SQLite through `/api/requests`.
+- New requests generate hard-to-guess invite tokens, store only token hashes plus expirations, and return the raw invite URL only at creation/regeneration time.
+- The authenticated `/requests/new` page can save a request with title, invitee email, duration, date range, selected weekdays, one time window, timezone, and notes.
+- The authenticated `/dashboard` page loads requests visible to the requester or accepted invitee from SQLite and can regenerate invite links.
+- The public `/invite/{token}` page resolves only non-sensitive request details, then lets the matching logged-in invitee accept or decline.
+- Request access checks now allow only the requester, invitee email, or accepted invitee user to fetch request details after authentication.
+- Request lifecycle audit events are recorded for creation, invite generation, opening, acceptance, and decline.
+- Remaining future work: participant-specific calendar readiness, secure email delivery, richer lifecycle transitions, and persistent proposed options.
