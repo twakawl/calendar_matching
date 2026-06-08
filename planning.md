@@ -15,8 +15,9 @@ The first implemented product slice beyond raw free/busy comparison is an MVP ma
 - **Done:** runnable FastAPI app, first-party registration/login/session foundation, Google OAuth connection for two user-owned local calendar slots, encrypted refresh-token storage, SQLite persistence, free/busy reads, merged busy blocks, health endpoint, static UI, Fly.io deployment notes, and setup/deployment checks.
 - **Done in this slice:** backend matching service and `/matching/options` endpoint that returns up to three candidate meeting options for the two connected calendars using duration, weekday, and allowed-hour constraints.
 - **Partially done:** the frontend can collect duration and weekday/hour preferences and display the three options, and the fixed `a`/`b` prototype slots are now scoped to the logged-in app user.
-- **Not started:** secure invite links, request lifecycle records, persistent proposed options, calendar writes, agreement tracking, anonymized participant agenda views, Azure SQL implementation, and Microsoft Calendar.
-- **Next recommended task:** continue Phase 1 foundation work by extracting the single-file prototype into a clearer package structure with fuller repository interfaces and migrations, then start meeting request creation and invite links from Phase 3.
+- **Done in latest slice:** SQLite-backed meeting request records, hashed expiring invite links, public invite preview, invitee accept/decline actions, request visibility checks, and request lifecycle audit events for the MVP invite flow.
+- **Not started:** persistent proposed options, calendar writes, final agreement tracking, advanced anonymized participant agenda views, Azure SQL implementation, and Microsoft Calendar.
+- **Next recommended task:** continue Phase 4 by storing matching runs/proposed options against meeting requests, then build request detail and privacy-preserving agenda views from Phase 5. Longer-term foundation cleanup should still extract the single-file prototype into a clearer package structure with repository interfaces and migrations.
 
 ## Feature priority
 

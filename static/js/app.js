@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let showCalendarA = true;
     let showCalendarB = true;
     let accountsLoaded = 0;
+    const requiresAuth = document.body.dataset.requiresAuth === "true";
 
     function $(id) {
         return document.getElementById(id);
@@ -71,12 +72,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function setSessionUi(user) {
         if (!user) {
-            window.location.replace("/login");
+            if (requiresAuth) window.location.replace("/login");
             return;
         }
 
         const menuName = $("userMenuName");
         if (menuName) menuName.textContent = userDisplayName(user);
+
+        const publicNav = $("publicNav");
+        if (publicNav) {
+            publicNav.innerHTML = `
+                <li class="nav-item"><a class="nav-link" href="/dashboard">Dashboard</a></li>
+                <li class="nav-item"><a class="nav-link" href="/requests/new">New request</a></li>
+                <li class="nav-item"><a class="nav-link" href="/account">Account</a></li>
+                <li class="nav-item"><button class="btn btn-outline-secondary" id="homeLogoutBtn" type="button">Log out</button></li>`;
+            const homeLogoutBtn = $("homeLogoutBtn");
+            if (homeLogoutBtn) {
+                homeLogoutBtn.onclick = async () => {
+                    await fetch("/auth/logout", { method: "POST" });
+                    window.location.replace("/");
+                };
+            }
+        }
     }
 
     async function loadCurrentUser() {
@@ -343,7 +360,7 @@ document.addEventListener("DOMContentLoaded", () => {
     async function loadAccounts() {
         const res = await fetch("/accounts");
         if (res.status === 401) {
-            window.location.replace("/login");
+            if (requiresAuth) window.location.replace("/login");
             return;
         }
         if (!res.ok) return;
@@ -398,6 +415,152 @@ document.addEventListener("DOMContentLoaded", () => {
             loadAccounts().catch(() => { });
             history.replaceState(null, "", window.location.pathname);
         }
+    }
+
+    function collectRequestPayload() {
+        const weekdays = Array.from(document.querySelectorAll(".weekday-input"))
+            .filter((input) => input.checked)
+            .map((input) => input.dataset.day);
+        return {
+            title: $("requestTitle")?.value || "Meeting request",
+            invitee_email: $("inviteeEmail")?.value || "",
+            duration_minutes: Number($("durationMinutes")?.value || 30),
+            earliest_date: $("earliestDate")?.value || "",
+            latest_date: $("latestDate")?.value || "",
+            timezone: $("timezone")?.value || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+            window_start: $("windowStart")?.value || "09:00",
+            window_end: $("windowEnd")?.value || "17:00",
+            allowed_weekdays: weekdays,
+            notes: $("requestNotes")?.value || "",
+        };
+    }
+
+    async function saveRequestDraft() {
+        const status = $("requestSaveStatus");
+        if (status) status.textContent = "Saving request draft…";
+
+        const res = await fetch("/api/requests", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(collectRequestPayload()),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            if (status) {
+                status.className = "small mt-2 text-danger";
+                status.textContent = data.detail || "Could not save this request.";
+            }
+            return;
+        }
+        if (status) {
+            status.className = "small mt-2 text-success";
+            status.innerHTML = `Saved in SQLite. <a href="/requests/${data.id}">Open request</a> · <a href="${data.invite_url}">Invite link</a>`;
+        }
+    }
+
+    async function generateInviteLink(requestId) {
+        const output = $(`inviteLink-${requestId}`);
+        if (output) output.textContent = "Creating invite link…";
+        const res = await fetch(`/api/requests/${encodeURIComponent(requestId)}/invite`, { method: "POST" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            if (output) {
+                output.className = "small text-danger d-block mt-2";
+                output.textContent = data.detail || "Could not create invite link.";
+            }
+            return;
+        }
+        const absoluteUrl = `${window.location.origin}${data.invite_url}`;
+        if (output) {
+            output.className = "small text-success d-block mt-2";
+            output.innerHTML = `<a href="${data.invite_url}">${absoluteUrl}</a>`;
+        }
+    }
+
+    function renderRequestList(requests) {
+        const list = $("requestList");
+        if (!list) return;
+        if (!requests || requests.length === 0) {
+            list.innerHTML = `<div class="empty-state text-center"><h2 class="h4">No requests yet</h2><p class="text-secondary">Create your first SQLite-backed request draft, then connect calendars and find options.</p><a class="btn btn-primary" href="/requests/new">Create request</a></div>`;
+            return;
+        }
+        list.innerHTML = `<h2 class="h5 mb-3">Saved requests</h2>` + requests.map((req) => `
+            <div class="request-card card shadow-sm rounded-4 mb-3">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between gap-3">
+                        <div><h3 class="h5">${escapeHtml(req.title)}</h3><p class="text-secondary mb-2">With ${escapeHtml(req.invitee_email)} · ${escapeHtml(req.earliest_date)}–${escapeHtml(req.latest_date)} · ${escapeHtml(req.duration_minutes)} minutes</p></div>
+                        <span class="badge text-bg-secondary align-self-start">${escapeHtml(req.status)}</span>
+                    </div>
+                    <p class="mb-3">Allowed ${escapeHtml((req.allowed_weekdays || []).join(", ") || "all days")} between ${escapeHtml(req.window_start)} and ${escapeHtml(req.window_end)}.</p>
+                    <a class="btn btn-outline-primary" href="/requests/${req.id}">Open request</a>
+                    <button class="btn btn-outline-secondary ms-2 invite-link-btn" type="button" data-request-id="${req.id}">Create invite link</button>
+                    <span id="inviteLink-${req.id}" class="small text-secondary d-block mt-2"></span>
+                </div>
+            </div>`).join("");
+        list.querySelectorAll(".invite-link-btn").forEach((button) => {
+            button.addEventListener("click", () => generateInviteLink(button.dataset.requestId));
+        });
+    }
+
+    async function loadRequests() {
+        const list = $("requestList");
+        if (!list) return;
+        const res = await fetch("/api/requests");
+        if (res.status === 401) {
+            if (requiresAuth) window.location.replace("/login");
+            return;
+        }
+        if (!res.ok) return;
+        renderRequestList(await res.json());
+    }
+
+    function inviteTokenFromPath() {
+        const parts = window.location.pathname.split("/");
+        return parts[1] === "invite" ? parts[2] : "";
+    }
+
+    function setInviteStatus(message, isError = false) {
+        const status = $("inviteStatus");
+        if (!status) return;
+        status.textContent = message;
+        status.className = isError ? "small text-danger mb-3" : "small text-secondary mb-3";
+    }
+
+    async function loadInvitePreview() {
+        const token = inviteTokenFromPath();
+        if (!token || !$('inviteTitle')) return;
+        const res = await fetch(`/api/invites/${encodeURIComponent(token)}`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            setInviteStatus(data.detail || "This invite link is unavailable.", true);
+            return;
+        }
+        setInviteStatus(`Invite expires ${new Date(data.expires_at).toLocaleString()}.`);
+        setText("inviteTitle", data.title);
+        setText("inviteSummary", `${data.requester_email} wants to find a shared ${data.duration_minutes}-minute meeting.`);
+        setText("inviteRequester", data.requester_email);
+        setText("inviteInvitee", data.invitee_email);
+        setText("inviteDuration", `${data.duration_minutes} minutes`);
+        setText("inviteDates", `${data.earliest_date}–${data.latest_date}`);
+        setText("inviteWindow", `${(data.allowed_weekdays || []).join(", ") || "Any day"} · ${data.window_start}–${data.window_end} ${data.timezone}`);
+        setText("inviteRequestStatus", data.status);
+    }
+
+    async function respondToInvite(action) {
+        const token = inviteTokenFromPath();
+        const res = await fetch(`/api/invites/${encodeURIComponent(token)}/${action}`, { method: "POST" });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+            window.location.replace(`/login?next=${encodeURIComponent(window.location.pathname)}`);
+            return;
+        }
+        if (!res.ok) {
+            setInviteStatus(data.detail || "Could not update this invite.", true);
+            return;
+        }
+        setInviteStatus(data.message);
+        setText("inviteRequestStatus", data.status);
+        if (action === "accept") window.location.href = "/account";
     }
 
     async function findMatchingTimes() {
@@ -530,11 +693,23 @@ document.addEventListener("DOMContentLoaded", () => {
         };
     }
 
+    const acceptInviteBtn = $("acceptInviteBtn");
+    if (acceptInviteBtn) acceptInviteBtn.onclick = () => respondToInvite("accept");
+
+    const declineInviteBtn = $("declineInviteBtn");
+    if (declineInviteBtn) declineInviteBtn.onclick = () => respondToInvite("decline");
+
     const findBtn = $("findBtn");
     if (findBtn) findBtn.onclick = findMatchingTimes;
+
+    const saveRequestBtn = $("saveRequestBtn");
+    if (saveRequestBtn) saveRequestBtn.onclick = saveRequestDraft;
 
     populateTimeSelects();
     setDefaultDates();
     initAuthCallbackBanner();
-    loadAccounts().catch(() => { });
+    loadCurrentUser().catch(() => { if (requiresAuth) window.location.replace("/login"); });
+    if ($("emails") || $("selectA") || $("statusA")) loadAccounts().catch(() => { });
+    loadRequests().catch(() => { });
+    loadInvitePreview().catch(() => setInviteStatus("Could not load this invite.", true));
 });

@@ -1,6 +1,6 @@
 # Calendar Matching
 
-Calendar Matching is an early-stage FastAPI prototype for comparing two Google Calendars. It now includes first-party app registration/login, lets logged-in users connect two Google Calendar slots with OAuth 2.0, stores encrypted refresh tokens in SQLite, reads only Google Calendar free/busy data, and shows overlapping availability in a simple browser UI.
+Calendar Matching is an early-stage FastAPI prototype for comparing two Google Calendars. It now includes first-party app registration/login, lets logged-in users connect two Google Calendar slots with OAuth 2.0, stores encrypted refresh tokens and meeting request drafts in SQLite, reads only Google Calendar free/busy data, and shows overlapping availability in a simple browser UI.
 
 The longer-term product direction is documented separately: authenticated users should eventually send meeting requests and receive the best meeting options based on both users' availability and request preferences.
 
@@ -8,7 +8,7 @@ The longer-term product direction is documented separately: authenticated users 
 
 This repository currently contains both planning documentation and a runnable prototype:
 
-- `app.py` — single-file FastAPI backend, first-party auth/session handling, OAuth callback handling, SQLite persistence, encrypted token storage, Google Calendar free/busy calls, and API endpoints.
+- `app.py` — single-file FastAPI backend, first-party auth/session handling, OAuth callback handling, SQLite persistence, encrypted token storage, meeting request and invite storage, Google Calendar free/busy calls, and API endpoints.
 - `static/html/home.html`, `static/html/login.html`, `static/css/style.css`, `static/js/app.js`, and `static/js/login.js` — lightweight frontend with a standalone login page, authenticated app shell, calendar-slot authentication, availability preferences, and suggested free slots.
 - `pyproject.toml` — Python package metadata and dependency list for `uv`.
 - `Dockerfile`, `fly.toml`, `requirements.txt`, and `.python-version` — Fly.io deployment settings for the hosted FastAPI service.
@@ -28,18 +28,18 @@ The setup instructions that are needed for the current prototype are included be
 - OAuth 2.0 Web Server Flow for Google Calendar tied to the logged-in user.
 - Offline access with refresh token storage.
 - Fernet encryption for stored refresh tokens.
-- SQLite-backed `users`, `user_sessions`, `oauth_states`, and user-owned `google_accounts` records.
+- SQLite-backed `users`, `user_sessions`, `oauth_states`, user-owned `google_accounts`, `meeting_requests`, and `request_audit_events` records.
 - Google Calendar free/busy reads for primary calendars only; event titles, descriptions, attendees, and locations are not fetched.
 - Combined busy-block response for two connected accounts.
 - MVP matching endpoint that returns the top three non-overlapping meeting options from duration, weekday, allowed-hour, and busy-block constraints.
-- Bootstrap-based multi-page frontend with product-shaped landing, account/calendar connection cards, dashboard placeholders, request creation wizard placeholders, invite and request-detail placeholders, responsive availability preview, and live top-three matching cards backed by the existing Google free/busy prototype.
+- Bootstrap-based multi-page frontend with a public informational home page, top-right login button, standalone login/register form, authenticated dashboard, account/calendar connection cards, SQLite-backed request creation/listing, secure invite preview with accept/decline actions, request-detail placeholders, responsive availability preview, and live top-three matching cards backed by the existing Google free/busy prototype.
 - Automatic access-token refresh before Calendar API calls.
 
 ## Future implementation scope
 
 The current app is still a prototype. Future work described in `docs/` includes:
 
-- Meeting-request records, invite links, and lifecycle statuses.
+- Full meeting-request lifecycle statuses, participant-specific calendar readiness, persistent proposed options, and email invite delivery.
 - A fuller storage abstraction that can support local SQLite and Azure SQL-style deployments.
 - Meeting request links between users.
 - Matching that returns the best three options based on request constraints and both agendas.
@@ -132,10 +132,16 @@ Run the setup verifier:
 uv run python tests/test_verify_setup.py
 ```
 
-Run the deployment, matching, and prototype UI regression tests when changing application behavior:
+Run the full automated regression suite when changing application behavior:
 
 ```bash
-uv run python -m unittest tests.test_matching_options tests.test_deployment_config tests.test_ui_routes tests.test_ui_functionality_contract
+uv run python -m pytest -q
+```
+
+If you only need the documented setup verifier, run:
+
+```bash
+uv run python tests/test_verify_setup.py
 ```
 
 Expected successful summary:
@@ -177,12 +183,12 @@ http://127.0.0.1:8000/redoc
 
 ## Basic usage
 
-1. Open `http://127.0.0.1:8000`; unauthenticated users are redirected to `/login`.
-2. Register or log in with an app account. After login, the app shell shows the current user menu in the top-right corner.
-3. Click **Authenticate user A** and complete the Google OAuth consent flow.
-4. Click **Authenticate user B** and complete the flow for a second calendar account.
-5. Select a meeting duration and weekday/hour availability preferences.
-6. Click **Find matching times** to fetch both calendars' busy blocks and show the top three matching slots.
+1. Open `http://127.0.0.1:8000`; unauthenticated users see the public information home page with a top-right **Log in** button.
+2. Register or log in with an app account, then use the authenticated dashboard and account pages.
+3. Create a request from `/requests/new`; it is persisted in local SQLite, generates a hashed expiring invite token, and appears on `/dashboard`.
+4. From `/account`, connect **Google Calendar · Slot A** and **Google Calendar · Slot B** with OAuth.
+5. On `/requests/new`, select a meeting duration and weekday/hour availability preferences.
+6. Click **Find best options** to fetch both calendars' busy blocks and show the top three matching slots.
 
 Direct OAuth start URLs are also available after logging in:
 
@@ -195,11 +201,12 @@ http://127.0.0.1:8000/oauth/start?account_label=b
 
 The current frontend implements the first UI milestone from `docs/ui-design-plan.md` as static Bootstrap pages with placeholders where backend request persistence and participant workflows will be added later:
 
-- `/` — landing page with privacy-first product explanation and primary actions.
-- `/login` and `/account` — Google Calendar connection cards for prototype slots A and B, plus a Microsoft Calendar placeholder.
-- `/dashboard` — grouped meeting request cards for needs-action, waiting, proposed, and agreed states.
-- `/requests/new` — request creation wizard-style form with title, invitee, duration, date range, weekday chips, time window, live matching button, top-three option cards, and secondary availability preview.
-- `/invite/demo-token` — invite landing page placeholder that explains the request and privacy behavior before connection.
+- `/` — public landing page with privacy-first product explanation and a top-right login button.
+- `/login` — first-party login/register form.
+- `/account` — authenticated Google Calendar connection cards for prototype slots A and B, plus a Microsoft Calendar placeholder.
+- `/dashboard` — authenticated list of SQLite-backed requests visible to the requester or accepted invitee, with an action to regenerate invite links.
+- `/requests/new` — authenticated request creation wizard-style form with title, invitee, duration, date range, weekday chips, time window, SQLite save action, live matching button, top-three option cards, and secondary availability preview.
+- `/invite/{token}` — public secure invite preview that resolves non-sensitive request details from a hashed expiring token and lets the matching logged-in invitee accept or decline.
 - `/requests/demo-request` — request detail placeholder with participant readiness, option cards, and agreement-state placeholders.
 - `/requests/demo-request/availability` — anonymized availability preview placeholder.
 
@@ -208,12 +215,20 @@ The current frontend implements the first UI milestone from `docs/ui-design-plan
 | Endpoint | Method | Description |
 | --- | --- | --- |
 | `/api/health` | GET | JSON health check. |
-| `/` | GET | Authenticated frontend home page; redirects unauthenticated users to `/login`. |
-| `/login` | GET | Standalone login/register page; redirects authenticated users back to `/`. |
+| `/` | GET | Public informational frontend home page with top-right login action. |
+| `/login` | GET | Standalone login/register page; redirects authenticated users to `/dashboard`. |
 | `/auth/register` | POST | Create an app user and return/set a session token. |
 | `/auth/login` | POST | Authenticate an app user and return/set a session token. |
 | `/auth/logout` | POST | Revoke the current session and clear the session cookie. |
 | `/auth/me` | GET | Return the logged-in app user. |
+| `/api/requests` | GET | List SQLite-backed meeting requests visible to the logged-in requester or invitee. |
+| `/api/requests` | POST | Create a SQLite-backed meeting request and return a one-time-visible secure invite URL. |
+| `/api/requests/{request_id}` | GET | Return one visible meeting request for the logged-in requester or invitee. |
+| `/api/requests/{request_id}/invite` | POST | Regenerate a hashed, expiring invite token for a requester-owned request. |
+| `/api/requests/{request_id}/audit` | GET | Return lifecycle audit events for a visible request. |
+| `/api/invites/{token}` | GET | Preview non-sensitive details for an unexpired invite token. |
+| `/api/invites/{token}/accept` | POST | Accept an invite as the logged-in invitee. |
+| `/api/invites/{token}/decline` | POST | Decline an invite as the logged-in invitee. |
 | `/oauth/start?account_label=a` | GET | Start Google OAuth for user-owned account slot `a` or `b`; requires login. |
 | `/oauth/callback` | GET | OAuth callback used by Google. |
 | `/freebusy/{account_label}` | GET | Free/busy response for one connected account owned by the logged-in user. Requires `time_min` and `time_max`. |
@@ -282,7 +297,7 @@ For the first hosted deployment, follow `cloud_hosting/fly_io.md` and add the Fl
 
 ## Database schema
 
-The prototype creates a local SQLite database by default. Authentication data lives in `users` and `user_sessions`; session tokens are stored only as SHA-256 hashes and passwords are stored as PBKDF2 hashes. OAuth callbacks are protected with short-lived one-time `oauth_states`. The `google_accounts` table contains:
+The prototype creates a local SQLite database by default. Authentication data lives in `users` and `user_sessions`; session tokens are stored only as SHA-256 hashes and passwords are stored as PBKDF2 hashes. OAuth callbacks are protected with short-lived one-time `oauth_states`. Meeting requests live in `meeting_requests` with title, invitee email, duration, date range, time window, selected weekdays, notes, status, hashed invite token, invite expiration/open/accept/decline timestamps, invitee user linkage, and timestamps. Lifecycle events live in `request_audit_events`. The `google_accounts` table contains:
 
 | Column | Purpose |
 | --- | --- |

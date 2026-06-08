@@ -16,21 +16,24 @@
                     <div class="card shadow-sm rounded-5 border-0">
                         <div class="card-body p-4 p-lg-5">
                             <span class="badge text-bg-primary mb-3">Meeting request invite</span>
-                            <h1 class="fw-bold">Product planning sync</h1>
-                            <p class="text-secondary">requester@example.com wants to find a shared 30-minute meeting between June 8 and June 19, 2026.</p>
+                            <div id="inviteStatus" class="small text-secondary mb-3" aria-live="polite">Loading invite…</div>
+                            <h1 class="fw-bold" id="inviteTitle">Meeting request</h1>
+                            <p class="text-secondary" id="inviteSummary">Checking this secure invite link.</p>
                             <ul class="list-group list-group-flush mb-4">
-                                <li class="list-group-item px-0 d-flex justify-content-between"><span>Requester</span><strong>requester@example.com</strong></li>
-                                <li class="list-group-item px-0 d-flex justify-content-between"><span>Duration</span><strong>30 minutes</strong></li>
-                                <li class="list-group-item px-0 d-flex justify-content-between"><span>Date range</span><strong>Jun 8–19, 2026</strong></li>
-                                <li class="list-group-item px-0 d-flex justify-content-between"><span>Status</span><strong>Waiting for calendar connection</strong></li>
+                                <li class="list-group-item px-0 d-flex justify-content-between"><span>Requester</span><strong id="inviteRequester">—</strong></li>
+                                <li class="list-group-item px-0 d-flex justify-content-between"><span>Invitee</span><strong id="inviteInvitee">—</strong></li>
+                                <li class="list-group-item px-0 d-flex justify-content-between"><span>Duration</span><strong id="inviteDuration">—</strong></li>
+                                <li class="list-group-item px-0 d-flex justify-content-between"><span>Date range</span><strong id="inviteDates">—</strong></li>
+                                <li class="list-group-item px-0 d-flex justify-content-between"><span>Allowed times</span><strong id="inviteWindow">—</strong></li>
+                                <li class="list-group-item px-0 d-flex justify-content-between"><span>Status</span><strong id="inviteRequestStatus">—</strong></li>
                             </ul>
                             <div class="privacy-note p-3 rounded-4 mb-4">🔒 To find shared times, connect your calendar. The requester will only see busy/free blocks, not event details.</div>
                             <div class="d-grid gap-2 d-sm-flex">
-                                <a class="btn btn-primary btn-lg flex-fill" href="/account">Accept and continue</a>
-                                <button class="btn btn-outline-secondary btn-lg flex-fill" type="button">Decline placeholder</button>
+                                <button class="btn btn-primary btn-lg flex-fill" id="acceptInviteBtn" type="button">Accept and continue</button>
+                                <button class="btn btn-outline-secondary btn-lg flex-fill" id="declineInviteBtn" type="button">Decline</button>
                             </div>
                             <hr class="my-4">
-                            <p class="small text-secondary mb-0">Safe invite preview placeholder: future backend endpoint should resolve the token and return only non-sensitive request info before full authenticated access.</p>
+                            <p class="small text-secondary mb-0">This page resolves only non-sensitive request details from a hashed, expiring invite token before the invitee accepts.</p>
                         </div>
                     </div>
                     <div class="text-center mt-3"><a href="/" class="link-secondary">Back to landing page</a></div>
