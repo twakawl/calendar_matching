@@ -7,28 +7,34 @@ Users must log in before connecting calendars, creating meeting requests, accept
 ## MVP scope
 
 - Account registration or external identity-provider login.
+- Separate login and registration pages.
 - Login and logout.
 - Session management.
 - Basic user profile fields:
   - user ID,
   - display name,
   - email address,
+  - phone number,
+  - timezone preference,
+  - linked calendar preference,
+  - ordered time presets,
   - created timestamp.
 - Authorization checks for every meeting request and agenda view.
 
 ## Current prototype status
 
-- Implemented application-managed email/password registration and login.
+- Implemented application-managed email/password registration and login, split across `/register` and `/login`.
 - Passwords are stored as salted PBKDF2 hashes.
 - Login creates a session token that is returned for bearer-token API use and also set as an HTTP-only browser cookie.
 - Logout revokes the current session token.
 - Calendar account listing, Google OAuth start, free/busy reads, paired availability, and matching now require an authenticated app user.
-- Unauthenticated browser users are redirected to `/login` and see only the standalone login/register page until authenticated.
+- Unauthenticated browser users are redirected to `/login`; registration lives separately at `/register`, and display name is not collected on login.
 - The authenticated app shell shows the current user name or email in a top-right user menu with logout.
 - Connected Google calendar slots are owned by the logged-in user while still exposing prototype slot names `a` and `b` in the UI.
 
 Still deferred:
 
+- Real Google/Microsoft app-login implementation. The current buttons route to explicit placeholder endpoints while calendar-link OAuth remains separate.
 - Password reset and email verification.
 - CSRF hardening and broader production session controls.
 - Redirecting invite links back to the original request after login; invite links are not implemented yet.

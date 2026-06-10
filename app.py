@@ -147,6 +147,10 @@ class User(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     email = Column(String, nullable=False, unique=True, index=True)
     display_name = Column(String, nullable=True)
+    phone_number = Column(String, nullable=True)
+    timezone_preference = Column(String, nullable=False, default="UTC")
+    time_presets = Column(String, nullable=True)
+    linked_calendar_label = Column(String, nullable=True)
     password_hash = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -186,6 +190,9 @@ class MeetingRequest(Base):
     owner_user_id = Column(String, nullable=False, index=True)
     title = Column(String, nullable=False)
     invitee_email = Column(String, nullable=False)
+    invitee_emails = Column(String, nullable=True)
+    friend_ids = Column(String, nullable=True)
+    time_preset_id = Column(String, nullable=True)
     duration_minutes = Column(Integer, nullable=False, default=30)
     earliest_date = Column(String, nullable=False)
     latest_date = Column(String, nullable=False)
@@ -218,6 +225,21 @@ class RequestAuditEvent(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class FriendRequest(Base):
+    """Email-based friend invitation between application users."""
+
+    __tablename__ = "friend_requests"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    requester_user_id = Column(String, nullable=False, index=True)
+    requester_email = Column(String, nullable=False)
+    recipient_email = Column(String, nullable=False, index=True)
+    recipient_user_id = Column(String, nullable=True, index=True)
+    status = Column(String, nullable=False, default="pending")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    responded_at = Column(DateTime, nullable=True)
+
+
 Base.metadata.create_all(bind=engine)
 
 
@@ -242,12 +264,29 @@ def _run_lightweight_migrations() -> None:
                 text("SELECT name FROM sqlite_master WHERE type='table'")
             )
         }
+        if "users" in request_tables:
+            user_columns = {
+                row[1] for row in connection.execute(text("PRAGMA table_info(users)"))
+            }
+            user_additive_columns = {
+                "phone_number": "VARCHAR",
+                "timezone_preference": "VARCHAR DEFAULT 'UTC'",
+                "time_presets": "VARCHAR",
+                "linked_calendar_label": "VARCHAR",
+            }
+            for column_name, column_type in user_additive_columns.items():
+                if column_name not in user_columns:
+                    connection.execute(text(f"ALTER TABLE users ADD COLUMN {column_name} {column_type}"))
+
         if "meeting_requests" in request_tables:
             request_columns = {
                 row[1]
                 for row in connection.execute(text("PRAGMA table_info(meeting_requests)"))
             }
             additive_columns = {
+                "invitee_emails": "VARCHAR",
+                "friend_ids": "VARCHAR",
+                "time_preset_id": "VARCHAR",
                 "invite_token_hash": "VARCHAR",
                 "invite_expires_at": "DATETIME",
                 "invite_opened_at": "DATETIME",
@@ -667,6 +706,12 @@ class BusyPeriod(BaseModel):
     end: str
 
 
+class TimeWindow(BaseModel):
+    day: int
+    start: str
+    end: str
+
+
 class AuthRequest(BaseModel):
     email: str
     password: str
@@ -676,11 +721,29 @@ class RegisterRequest(AuthRequest):
     display_name: Optional[str] = None
 
 
+class TimePreset(BaseModel):
+    id: str
+    name: str
+    windows: list[TimeWindow] = Field(default_factory=list)
+
+
 class UserResponse(BaseModel):
     id: str
     email: str
     display_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    timezone_preference: str = "UTC"
+    linked_calendar_label: Optional[str] = None
+    time_presets: list[TimePreset] = Field(default_factory=list)
     created_at: datetime
+
+
+class ProfileUpdate(BaseModel):
+    display_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    timezone_preference: str = "UTC"
+    linked_calendar_label: Optional[str] = None
+    time_presets: list[TimePreset] = Field(default_factory=list)
 
 
 class AuthResponse(BaseModel):
@@ -691,7 +754,10 @@ class AuthResponse(BaseModel):
 
 class MeetingRequestCreate(BaseModel):
     title: str
-    invitee_email: str
+    invitee_email: str = ""
+    invitee_emails: list[str] = Field(default_factory=list)
+    friend_ids: list[str] = Field(default_factory=list)
+    time_preset_id: Optional[str] = None
     duration_minutes: int = 30
     earliest_date: str
     latest_date: str
@@ -758,12 +824,6 @@ class PairedFreeBusyResponse(BaseModel):
     combined_busy: list[BusyPeriod]
 
 
-class TimeWindow(BaseModel):
-    day: int
-    start: str
-    end: str
-
-
 class MatchingOptionsRequest(BaseModel):
     time_min: str
     time_max: str
@@ -783,6 +843,24 @@ class MatchingOptionsResponse(BaseModel):
     duration_minutes: int
     slot_granularity_minutes: int
     options: list[MeetingOption]
+
+
+class FriendRequestCreate(BaseModel):
+    recipient_email: str
+
+
+class FriendRequestResponse(BaseModel):
+    id: str
+    requester_email: str
+    recipient_email: str
+    status: str
+    created_at: datetime
+    responded_at: Optional[datetime] = None
+
+
+class DemoMatchingRequest(MatchingOptionsRequest):
+    busy_a: list[BusyPeriod] = Field(default_factory=list)
+    busy_b: list[BusyPeriod] = Field(default_factory=list)
 
 
 # ============================================================================
@@ -832,6 +910,32 @@ async def login_page(request: Request):
     return _serve_html("login.html")
 
 
+@app.get("/register", response_class=HTMLResponse)
+async def register_page(request: Request):
+    """Serve the standalone registration page."""
+    if _current_user_from_request(request):
+        return RedirectResponse(url="/dashboard", status_code=303)
+    return _serve_html("register.html")
+
+
+@app.get("/profile", response_class=HTMLResponse)
+async def profile_page(request: Request):
+    """Serve the personal profile page."""
+    return _serve_authenticated_html(request, "profile.html")
+
+
+@app.get("/friends", response_class=HTMLResponse)
+async def friends_page(request: Request):
+    """Serve the friends page."""
+    return _serve_authenticated_html(request, "friends.html")
+
+
+@app.get("/requests/demo", response_class=HTMLResponse)
+async def demo_request_page():
+    """Serve the public demo request page with separated demo calendars."""
+    return _serve_html("demo_request.html")
+
+
 @app.get("/account", response_class=HTMLResponse)
 async def account_page(request: Request):
     """Serve the account and calendar connection page."""
@@ -868,12 +972,34 @@ async def availability_page(request_id: str, request: Request):
     return _serve_authenticated_html(request, "availability.html")
 
 
+DEFAULT_TIME_PRESETS = [
+    TimePreset(id="week-evening", name="Week-evening", windows=[TimeWindow(day=d, start="18:00", end="21:00") for d in range(5)]),
+    TimePreset(id="weekend", name="Weekend", windows=[TimeWindow(day=4, start="18:00", end="23:59"), TimeWindow(day=5, start="00:00", end="23:59"), TimeWindow(day=6, start="00:00", end="21:00")]),
+    TimePreset(id="weekend-day", name="Weekend day", windows=[TimeWindow(day=d, start="10:00", end="18:00") for d in [5, 6]]),
+    TimePreset(id="weekend-evening", name="Weekend evening", windows=[TimeWindow(day=d, start="18:00", end="23:59") for d in [4, 5]]),
+    TimePreset(id="working-hours", name="Working hours", windows=[TimeWindow(day=d, start="08:00", end="18:00") for d in range(5)]),
+]
+
+
+def _presets_for_user(user: User) -> list[TimePreset]:
+    if user.time_presets:
+        try:
+            return [TimePreset(**item) for item in json.loads(user.time_presets)]
+        except Exception:
+            return DEFAULT_TIME_PRESETS
+    return DEFAULT_TIME_PRESETS
+
+
 def _user_response(user: User) -> UserResponse:
     """Serialize a user without credentials."""
     return UserResponse(
         id=user.id,
         email=user.email,
         display_name=user.display_name,
+        phone_number=user.phone_number,
+        timezone_preference=user.timezone_preference or "UTC",
+        linked_calendar_label=user.linked_calendar_label,
+        time_presets=_presets_for_user(user),
         created_at=user.created_at,
     )
 
@@ -958,6 +1084,45 @@ async def get_me(current_user: User = Depends(require_current_user)):
     return _user_response(current_user)
 
 
+@app.get("/api/profile", response_model=UserResponse, tags=["Profile"])
+async def get_profile(current_user: User = Depends(require_current_user)):
+    """Return editable personal profile settings."""
+    return _user_response(current_user)
+
+
+@app.put("/api/profile", response_model=UserResponse, tags=["Profile"])
+async def update_profile(payload: ProfileUpdate, current_user: User = Depends(require_current_user)):
+    """Update display name, phone, timezone, linked calendar, and ordered presets."""
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter_by(id=current_user.id).one()
+        user.display_name = payload.display_name.strip() if payload.display_name else None
+        user.phone_number = payload.phone_number.strip() if payload.phone_number else None
+        user.timezone_preference = payload.timezone_preference.strip() or "UTC"
+        user.linked_calendar_label = payload.linked_calendar_label
+        user.time_presets = json.dumps([preset.model_dump() for preset in payload.time_presets])
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return _user_response(user)
+    finally:
+        db.close()
+
+
+@app.get("/api/time-presets", response_model=list[TimePreset], tags=["Profile"])
+async def list_time_presets(current_user: User = Depends(require_current_user)):
+    """Return the current user's ordered time presets."""
+    return _presets_for_user(current_user)
+
+
+@app.get("/auth/oauth/{provider}", tags=["Authentication"])
+async def oauth_login_placeholder(provider: str):
+    """Advertise future app-login OAuth providers without mixing them with calendar linking."""
+    if provider not in {"google", "microsoft"}:
+        raise HTTPException(status_code=404, detail="Unsupported login provider")
+    raise HTTPException(status_code=501, detail=f"{provider.title()} app login is planned; use email login for this prototype")
+
+
 def _allowed_weekdays_for(record: MeetingRequest) -> list[str]:
     """Decode allowed weekdays from the JSON column used by the prototype."""
     try:
@@ -965,6 +1130,17 @@ def _allowed_weekdays_for(record: MeetingRequest) -> list[str]:
         return value if isinstance(value, list) else []
     except json.JSONDecodeError:
         return []
+
+
+def _invitee_emails_for(record: MeetingRequest) -> list[str]:
+    """Decode all invitee emails, falling back to the legacy single email column."""
+    try:
+        value = json.loads(record.invitee_emails or "[]")
+        if isinstance(value, list) and value:
+            return value
+    except json.JSONDecodeError:
+        pass
+    return [record.invitee_email] if record.invitee_email else []
 
 
 def _meeting_request_response(
@@ -975,6 +1151,9 @@ def _meeting_request_response(
         id=record.id,
         title=record.title,
         invitee_email=record.invitee_email,
+        invitee_emails=_invitee_emails_for(record),
+        friend_ids=json.loads(record.friend_ids or "[]"),
+        time_preset_id=record.time_preset_id,
         duration_minutes=record.duration_minutes,
         earliest_date=record.earliest_date,
         latest_date=record.latest_date,
@@ -1038,7 +1217,7 @@ def _request_visible_to_user(record: MeetingRequest, user: User) -> bool:
     return (
         record.owner_user_id == user.id
         or record.invitee_user_id == user.id
-        or record.invitee_email == user.email
+        or user.email in _invitee_emails_for(record)
     )
 
 
@@ -1070,8 +1249,11 @@ def _validate_meeting_request_payload(payload: MeetingRequestCreate) -> None:
     """Validate the request fields that are currently persisted by SQLite."""
     if not payload.title.strip():
         raise HTTPException(status_code=400, detail="Meeting title is required")
+    emails = payload.invitee_emails or ([payload.invitee_email] if payload.invitee_email else [])
+    if not emails:
+        raise HTTPException(status_code=400, detail="At least one invitee email is required")
     try:
-        _normalize_email(payload.invitee_email)
+        [_normalize_email(email) for email in emails]
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="A valid invitee email is required") from exc
     if payload.duration_minutes not in {15, 30, 45, 60, 90, 120}:
@@ -1092,17 +1274,12 @@ async def list_meeting_requests(current_user: User = Depends(require_current_use
     """List meeting requests visible to the current requester or invitee."""
     db = SessionLocal()
     try:
-        records = (
-            db.query(MeetingRequest)
-            .filter(
-                (MeetingRequest.owner_user_id == current_user.id)
-                | (MeetingRequest.invitee_user_id == current_user.id)
-                | (MeetingRequest.invitee_email == current_user.email)
-            )
-            .order_by(MeetingRequest.created_at.desc())
-            .all()
-        )
-        return [_meeting_request_response(record) for record in records]
+        records = db.query(MeetingRequest).order_by(MeetingRequest.created_at.desc()).all()
+        return [
+            _meeting_request_response(record)
+            for record in records
+            if _request_visible_to_user(record, current_user)
+        ]
     finally:
         db.close()
 
@@ -1114,11 +1291,15 @@ async def create_meeting_request(
     """Create a SQLite-backed request draft and secure invite link."""
     _validate_meeting_request_payload(payload)
     now = datetime.utcnow()
+    normalized_invitees = [_normalize_email(email) for email in (payload.invitee_emails or [payload.invitee_email])]
     record = MeetingRequest(
         id=str(uuid.uuid4()),
         owner_user_id=current_user.id,
         title=payload.title.strip(),
-        invitee_email=_normalize_email(payload.invitee_email),
+        invitee_email=normalized_invitees[0],
+        invitee_emails=json.dumps(normalized_invitees),
+        friend_ids=json.dumps(payload.friend_ids),
+        time_preset_id=payload.time_preset_id,
         duration_minutes=payload.duration_minutes,
         earliest_date=payload.earliest_date,
         latest_date=payload.latest_date,
@@ -1245,7 +1426,7 @@ async def accept_invite(token: str, current_user: User = Depends(require_current
     db = SessionLocal()
     try:
         record = _get_invite_record_or_404(db, token)
-        if record.invitee_email != current_user.email:
+        if current_user.email not in _invitee_emails_for(record):
             raise HTTPException(status_code=403, detail="This invite is for a different email address")
         if record.invite_declined_at:
             raise HTTPException(status_code=400, detail="This invite was already declined")
@@ -1271,7 +1452,7 @@ async def decline_invite(token: str, current_user: User = Depends(require_curren
     db = SessionLocal()
     try:
         record = _get_invite_record_or_404(db, token)
-        if record.invitee_email != current_user.email:
+        if current_user.email not in _invitee_emails_for(record):
             raise HTTPException(status_code=403, detail="This invite is for a different email address")
         now = datetime.utcnow()
         record.invitee_user_id = current_user.id
@@ -1287,6 +1468,103 @@ async def decline_invite(token: str, current_user: User = Depends(require_curren
         )
     finally:
         db.close()
+
+
+def _friend_response(record: FriendRequest) -> FriendRequestResponse:
+    return FriendRequestResponse(
+        id=record.id,
+        requester_email=record.requester_email,
+        recipient_email=record.recipient_email,
+        status=record.status,
+        created_at=record.created_at,
+        responded_at=record.responded_at,
+    )
+
+
+@app.get("/api/friends", response_model=list[FriendRequestResponse], tags=["Friends"])
+async def list_friends(current_user: User = Depends(require_current_user)):
+    """List pending and accepted email-based friend relationships."""
+    db = SessionLocal()
+    try:
+        records = (
+            db.query(FriendRequest)
+            .filter(
+                (FriendRequest.requester_user_id == current_user.id)
+                | (FriendRequest.recipient_email == current_user.email)
+                | (FriendRequest.recipient_user_id == current_user.id)
+            )
+            .order_by(FriendRequest.created_at.desc())
+            .all()
+        )
+        return [_friend_response(record) for record in records]
+    finally:
+        db.close()
+
+
+@app.post("/api/friends", response_model=FriendRequestResponse, tags=["Friends"])
+async def send_friend_request(payload: FriendRequestCreate, current_user: User = Depends(require_current_user)):
+    """Send a friend request to an email address."""
+    recipient_email = _normalize_email(payload.recipient_email)
+    if recipient_email == current_user.email:
+        raise HTTPException(status_code=400, detail="You cannot friend yourself")
+    db = SessionLocal()
+    try:
+        recipient = db.query(User).filter_by(email=recipient_email).first()
+        record = FriendRequest(
+            id=str(uuid.uuid4()),
+            requester_user_id=current_user.id,
+            requester_email=current_user.email,
+            recipient_email=recipient_email,
+            recipient_user_id=recipient.id if recipient else None,
+            status="pending",
+            created_at=datetime.utcnow(),
+        )
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+        return _friend_response(record)
+    finally:
+        db.close()
+
+
+@app.post("/api/friends/{friend_request_id}/accept", response_model=FriendRequestResponse, tags=["Friends"])
+async def accept_friend_request(friend_request_id: str, current_user: User = Depends(require_current_user)):
+    """Accept a friend request addressed to the current user's email."""
+    db = SessionLocal()
+    try:
+        record = db.query(FriendRequest).filter_by(id=friend_request_id).first()
+        if not record or record.recipient_email != current_user.email:
+            raise HTTPException(status_code=404, detail="Friend request not found")
+        record.status = "accepted"
+        record.recipient_user_id = current_user.id
+        record.responded_at = datetime.utcnow()
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+        return _friend_response(record)
+    finally:
+        db.close()
+
+
+@app.post("/api/demo/options", response_model=MatchingOptionsResponse, tags=["Matching"])
+async def demo_matching_options(request: DemoMatchingRequest):
+    """Run matching against two demo calendars, separate from personal connections."""
+    try:
+        matching_result = find_matching_options(
+            time_min=request.time_min,
+            time_max=request.time_max,
+            duration_minutes=request.duration_minutes,
+            busy_periods=_merge_busy_periods(request.busy_a + request.busy_b),
+            allowed_windows=request.allowed_windows,
+            max_options=request.max_options,
+        )
+        return MatchingOptionsResponse(
+            duration_minutes=matching_result.duration_minutes,
+            slot_granularity_minutes=matching_result.slot_granularity_minutes,
+            options=[MeetingOption(**option.__dict__) for option in matching_result.options],
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.get("/oauth/start", tags=["OAuth"])

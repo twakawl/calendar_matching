@@ -18,13 +18,15 @@ This repository currently contains both planning documentation and a runnable pr
 - `tests/test_verify_setup.py` — setup verification script for environment variables, imports, and local database readiness.
 - `test.py` — manual helper script for printing local `google_accounts` rows.
 - `DEBUGGING_GUIDE.md` — manual troubleshooting notes for the current prototype.
-- `docs/` — product roadmap and feature specifications for future development.
+- `docs/` — product roadmap and feature specifications for future development, including `docs/features/profile-friends-demo.md` for the latest implemented feature slice.
 
 The setup instructions that are needed for the current prototype are included below.
 
 ## Implemented features
 
-- First-party registration, login, logout, HTTP-only session cookies, and bearer-token API sessions.
+- First-party registration, standalone login, logout, HTTP-only session cookies, bearer-token API sessions, and visible placeholder buttons for future Google/Microsoft app-login.
+- Dedicated registration page plus editable personal profile with display name, phone number, timezone preference, linked calendar preference, and ordered time presets.
+- Friends page with email-based friend requests, acceptance, and disabled contact-import placeholders for Gmail, Apple, Microsoft, and Android.
 - OAuth 2.0 Web Server Flow for Google Calendar tied to the logged-in user.
 - Offline access with refresh token storage.
 - Fernet encryption for stored refresh tokens.
@@ -32,14 +34,14 @@ The setup instructions that are needed for the current prototype are included be
 - Google Calendar free/busy reads for primary calendars only; event titles, descriptions, attendees, and locations are not fetched.
 - Combined busy-block response for two connected accounts.
 - MVP matching endpoint that returns the top three non-overlapping meeting options from duration, weekday, allowed-hour, and busy-block constraints.
-- Bootstrap-based multi-page frontend with a public informational home page, top-right login button, standalone login/register form, authenticated dashboard, account/calendar connection cards, SQLite-backed request creation/listing, secure invite preview with accept/decline actions, request-detail placeholders, responsive availability preview, and live top-three matching cards backed by the existing Google free/busy prototype.
+- Bootstrap-based multi-page frontend with a public informational home page, top-right login button, separate login and registration pages, authenticated dashboard, account/calendar connection cards, profile and friends pages, SQLite-backed multi-invitee request creation/listing, secure invite preview with accept/decline actions, request-detail placeholders, responsive availability preview, a public demo request, and live top-three matching cards backed by the existing Google free/busy prototype.
 - Automatic access-token refresh before Calendar API calls.
 
 ## Future implementation scope
 
 The current app is still a prototype. Future work described in `docs/` includes:
 
-- Full meeting-request lifecycle statuses, participant-specific calendar readiness, persistent proposed options, and email invite delivery.
+- Full meeting-request lifecycle statuses, participant-specific calendar readiness for multiple invitees, persistent proposed options, and email invite delivery.
 - A fuller storage abstraction that can support local SQLite and Azure SQL-style deployments.
 - Meeting request links between users.
 - Matching that returns the best three options based on request constraints and both agendas.
@@ -202,11 +204,15 @@ http://127.0.0.1:8000/oauth/start?account_label=b
 The current frontend implements the first UI milestone from `docs/ui-design-plan.md` as static Bootstrap pages with placeholders where backend request persistence and participant workflows will be added later:
 
 - `/` — public landing page with privacy-first product explanation and a top-right login button.
-- `/login` — first-party login/register form.
+- `/login` — first-party email login page with Google/Microsoft app-login placeholders.
+- `/register` — first-party registration page with display name collection.
+- `/profile` — authenticated personal profile with display name, phone number, timezone preference, linked calendar preference, and ordered time presets.
+- `/friends` — authenticated friend list with email request/accept flow and disabled contact-import placeholders.
 - `/account` — authenticated Google Calendar connection cards for prototype slots A and B, plus a Microsoft Calendar placeholder.
 - `/dashboard` — authenticated list of SQLite-backed requests visible to the requester or accepted invitee, with an action to regenerate invite links.
-- `/requests/new` — authenticated request creation wizard-style form with title, invitee, duration, date range, weekday chips, time window, SQLite save action, live matching button, top-three option cards, and secondary availability preview.
+- `/requests/new` — authenticated request creation wizard-style form with title, multiple invitee emails, friend selections, ordered time-preset controls, duration, date range, weekday chips, time window, SQLite save action, live matching button, top-three option cards, and secondary availability preview.
 - `/invite/{token}` — public secure invite preview that resolves non-sensitive request details from a hashed expiring token and lets the matching logged-in invitee accept or decline.
+- `/requests/demo` — public demo request that runs the matching engine against two separate demo calendar busy registries.
 - `/requests/demo-request` — request detail placeholder with participant readiness, option cards, and agreement-state placeholders.
 - `/requests/demo-request/availability` — anonymized availability preview placeholder.
 
@@ -216,7 +222,11 @@ The current frontend implements the first UI milestone from `docs/ui-design-plan
 | --- | --- | --- |
 | `/api/health` | GET | JSON health check. |
 | `/` | GET | Public informational frontend home page with top-right login action. |
-| `/login` | GET | Standalone login/register page; redirects authenticated users to `/dashboard`. |
+| `/login` | GET | Standalone email login page with Google/Microsoft app-login placeholders; redirects authenticated users to `/dashboard`. |
+| `/register` | GET | Standalone registration page that collects display name. |
+| `/profile` | GET | Authenticated profile page for editable personal settings and ordered time presets. |
+| `/friends` | GET | Authenticated friend list page. |
+| `/requests/demo` | GET | Public demo request page backed by demo calendar registries. |
 | `/auth/register` | POST | Create an app user and return/set a session token. |
 | `/auth/login` | POST | Authenticate an app user and return/set a session token. |
 | `/auth/logout` | POST | Revoke the current session and clear the session cookie. |
@@ -234,6 +244,11 @@ The current frontend implements the first UI milestone from `docs/ui-design-plan
 | `/freebusy/{account_label}` | GET | Free/busy response for one connected account owned by the logged-in user. Requires `time_min` and `time_max`. |
 | `/pair` | GET | Combined free/busy response for both connected accounts owned by the logged-in user. Requires `time_min` and `time_max`. |
 | `/matching/options` | POST | Returns up to three non-overlapping options for both connected calendars owned by the logged-in user using `time_min`, `time_max`, `duration_minutes`, and optional weekday/time windows. |
+| `/api/demo/options` | POST | Runs the same matching engine against two submitted demo busy registries without using personal calendar connections. |
+| `/api/profile` | GET/PUT | Returns or updates display name, phone number, timezone preference, linked calendar preference, and ordered time presets. |
+| `/api/time-presets` | GET | Returns the current user's ordered time presets. |
+| `/api/friends` | GET/POST | Lists friend requests or sends a new email-address friend request. |
+| `/api/friends/{id}/accept` | POST | Accepts a pending friend request addressed to the current user. |
 | `/accounts` | GET | Logged-in user's stored account metadata, without tokens. |
 | `/accounts/select` | POST | Prototype endpoint for marking an account selected in the UI. |
 
