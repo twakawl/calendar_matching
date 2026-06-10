@@ -321,3 +321,9 @@ Deliverables:
 - Track every app-created calendar event before attempting cleanup.
 - Do not write proposed options to calendars until a user intentionally triggers that action.
 - Add tests with every behavior-producing feature.
+
+## Planned and executed feature slice: login, profile, requests, friends, and demo
+
+This slice was planned in `docs/features/profile-friends-demo.md` before implementation and then executed in the prototype. It adds a separated `/register` page, provider-login placeholders on `/login`, editable personal profiles, ordered standard/custom time presets, multi-invitee request inputs, friend-list request/accept flows, disabled contact-import placeholders, and a public demo request that reuses the matching engine against two demo calendar registries.
+
+Next recommended task after this slice: normalize multi-participant requests into first-class participant rows and add per-participant calendar-readiness state before matching real multi-person requests.

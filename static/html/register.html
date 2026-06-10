@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Register · Calendar Matching</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div id="health" title="API health"></div>
+    <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top"><div class="container"><a class="navbar-brand fw-bold" href="/">Calendar Matching</a><div class="ms-auto d-flex gap-2"><a class="btn btn-outline-primary" href="/login">Log in</a><a class="btn btn-primary" href="/requests/demo">Demo request</a></div></div></nav>
+    <main class="container py-5">
+        <div class="row justify-content-center"><div class="col-lg-8">
+            <div class="page-heading mb-4 text-center"><p class="text-uppercase small fw-semibold text-primary mb-1">Create account</p><h1 class="fw-bold">Register for Calendar Matching</h1><p class="text-secondary">Display name is collected only during registration and can be edited later on your profile.</p></div>
+            <div class="card shadow-sm rounded-5 border-0"><div class="card-body p-4 p-lg-5">
+                <div class="row g-3">
+                    <div class="col-md-6"><label class="form-label" for="authEmail">Email</label><input id="authEmail" type="email" class="form-control" autocomplete="email" placeholder="you@example.com"></div>
+                    <div class="col-md-6"><label class="form-label" for="authDisplayName">Display name</label><input id="authDisplayName" class="form-control" autocomplete="name" placeholder="Your visible name"></div>
+                    <div class="col-12"><label class="form-label" for="authPassword">Password</label><input id="authPassword" type="password" class="form-control" autocomplete="new-password" placeholder="At least 8 characters"></div>
+                </div>
+                <div id="loginStatus" class="small mt-3" aria-live="polite"></div>
+                <div class="d-flex flex-column flex-sm-row gap-2 mt-4"><button id="registerBtn" class="btn btn-primary btn-lg flex-fill" type="button">Create account</button><a class="btn btn-outline-primary btn-lg flex-fill" href="/login">I already have an account</a></div>
+            </div></div>
+        </div></div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/login.js"></script>
+</body>
+</html>

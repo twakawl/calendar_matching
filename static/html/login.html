@@ -19,20 +19,23 @@
                 <div class="page-heading mb-4 text-center">
                     <p class="text-uppercase small fw-semibold text-primary mb-1">Welcome back</p>
                     <h1 class="fw-bold">Log in to Calendar Matching</h1>
-                    <p class="text-secondary">Use one app account first, then connect Google calendars from the Account page.</p>
+                    <p class="text-secondary">Log in with email, or choose a future Google or Microsoft app-login option. Display name now belongs only on registration and profile.</p>
                 </div>
 
                 <div class="card shadow-sm rounded-5 border-0">
                     <div class="card-body p-4 p-lg-5">
                         <div class="row g-3">
-                            <div class="col-md-6"><label class="form-label" for="authEmail">Email</label><input id="authEmail" type="email" class="form-control" autocomplete="email" placeholder="you@example.com"></div>
-                            <div class="col-md-6"><label class="form-label" for="authDisplayName">Display name</label><input id="authDisplayName" class="form-control" autocomplete="name" placeholder="Optional for registration"></div>
+                            <div class="col-12"><label class="form-label" for="authEmail">Email</label><input id="authEmail" type="email" class="form-control" autocomplete="email" placeholder="you@example.com"></div>
                             <div class="col-12"><label class="form-label" for="authPassword">Password</label><input id="authPassword" type="password" class="form-control" autocomplete="current-password" placeholder="At least 8 characters"></div>
                         </div>
                         <div id="loginStatus" class="small mt-3" aria-live="polite"></div>
                         <div class="d-flex flex-column flex-sm-row gap-2 mt-4">
-                            <button id="loginBtn" class="btn btn-primary btn-lg flex-fill" type="button">Log in</button>
-                            <button id="registerBtn" class="btn btn-outline-primary btn-lg flex-fill" type="button">Create account</button>
+                            <button id="loginBtn" class="btn btn-primary btn-lg flex-fill" type="button">Log in with email</button>
+                            <a id="registerBtn" class="btn btn-outline-primary btn-lg flex-fill" href="/register">Create account</a>
+                        </div>
+                        <div class="row g-2 mt-3">
+                            <div class="col-md-6"><a class="btn btn-outline-dark w-100" href="/auth/oauth/google">Log in with Google</a></div>
+                            <div class="col-md-6"><a class="btn btn-outline-dark w-100" href="/auth/oauth/microsoft">Log in with Microsoft</a></div>
                         </div>
                     </div>
                 </div>

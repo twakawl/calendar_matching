@@ -42,7 +42,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     $("loginBtn")?.addEventListener("click", () => submitAuth("login"));
-    $("registerBtn")?.addEventListener("click", () => submitAuth("register"));
+    const registerBtn = $("registerBtn");
+    if (registerBtn && registerBtn.tagName === "BUTTON") {
+        registerBtn.addEventListener("click", () => submitAuth("register"));
+    }
     $("authPassword")?.addEventListener("keydown", (event) => {
         if (event.key === "Enter") submitAuth("login");
     });

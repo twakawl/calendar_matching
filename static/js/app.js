@@ -405,6 +405,173 @@ document.addEventListener("DOMContentLoaded", () => {
         if (accountB) selB.value = "b";
     }
 
+
+
+    function presetToText(preset) {
+        const names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+        return (preset.windows || []).map((w) => `${names[w.day] || w.day} ${w.start}-${w.end}`).join(", ");
+    }
+
+    let profilePresets = [];
+
+    async function loadProfile() {
+        if (!$('profileDisplayName') && !$('presetList') && !$('timePresetSelect')) return;
+        const res = await fetch('/api/profile');
+        if (!res.ok) return;
+        const profile = await res.json();
+        profilePresets = profile.time_presets || [];
+        if ($('profileDisplayName')) $('profileDisplayName').value = profile.display_name || '';
+        if ($('profilePhone')) $('profilePhone').value = profile.phone_number || '';
+        if ($('profileTimezone')) $('profileTimezone').value = profile.timezone_preference || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        if ($('profileLinkedCalendar')) $('profileLinkedCalendar').value = profile.linked_calendar_label || '';
+        renderPresetList();
+        renderRequestPresetControls(profilePresets);
+    }
+
+    function renderPresetList() {
+        const list = $('presetList');
+        if (!list) return;
+        list.innerHTML = profilePresets.map((preset, index) => `
+            <div class="preset-card border rounded-4 p-3" data-index="${index}">
+                <div class="d-flex justify-content-between gap-2 align-items-start">
+                    <div class="flex-grow-1">
+                        <label class="form-label small" for="presetName-${index}">Preset name</label>
+                        <input id="presetName-${index}" class="form-control preset-name" value="${escapeHtml(preset.name)}">
+                        <label class="form-label small mt-2" for="presetWindows-${index}">Windows JSON</label>
+                        <textarea id="presetWindows-${index}" class="form-control preset-windows" rows="3">${escapeHtml(JSON.stringify(preset.windows || []))}</textarea>
+                        <p class="small text-secondary mt-2 mb-0">${escapeHtml(presetToText(preset))}</p>
+                    </div>
+                    <div class="btn-group-vertical">
+                        <button class="btn btn-outline-secondary btn-sm preset-up" type="button">↑</button>
+                        <button class="btn btn-outline-secondary btn-sm preset-down" type="button">↓</button>
+                        <button class="btn btn-outline-danger btn-sm preset-remove" type="button">Remove</button>
+                    </div>
+                </div>
+            </div>`).join('');
+        list.querySelectorAll('.preset-card').forEach((card) => {
+            const index = Number(card.dataset.index);
+            card.querySelector('.preset-name').addEventListener('input', (event) => { profilePresets[index].name = event.target.value; });
+            card.querySelector('.preset-windows').addEventListener('change', (event) => {
+                try { profilePresets[index].windows = JSON.parse(event.target.value); }
+                catch { alert('Preset windows must be valid JSON like [{"day":0,"start":"18:00","end":"21:00"}]'); }
+            });
+            card.querySelector('.preset-up').addEventListener('click', () => { if (index > 0) { [profilePresets[index - 1], profilePresets[index]] = [profilePresets[index], profilePresets[index - 1]]; renderPresetList(); } });
+            card.querySelector('.preset-down').addEventListener('click', () => { if (index < profilePresets.length - 1) { [profilePresets[index + 1], profilePresets[index]] = [profilePresets[index], profilePresets[index + 1]]; renderPresetList(); } });
+            card.querySelector('.preset-remove').addEventListener('click', () => { profilePresets.splice(index, 1); renderPresetList(); });
+        });
+    }
+
+    async function saveProfile() {
+        const status = $('profileStatus');
+        if (status) status.textContent = 'Saving profile…';
+        const payload = {
+            display_name: $('profileDisplayName')?.value || '',
+            phone_number: $('profilePhone')?.value || '',
+            timezone_preference: $('profileTimezone')?.value || 'UTC',
+            linked_calendar_label: $('profileLinkedCalendar')?.value || null,
+            time_presets: profilePresets,
+        };
+        const res = await fetch('/api/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (status) {
+            status.className = res.ok ? 'small mt-3 text-success' : 'small mt-3 text-danger';
+            status.textContent = res.ok ? 'Profile saved.' : 'Could not save profile.';
+        }
+        if (res.ok) await loadProfile();
+    }
+
+    function addPreset() {
+        profilePresets.push({ id: `custom-${Date.now()}`, name: 'Custom preset', windows: [{ day: 0, start: '09:00', end: '17:00' }] });
+        renderPresetList();
+    }
+
+    async function loadFriends() {
+        const list = $('friendList');
+        const requestFriendList = $('requestFriendList');
+        if (!list && !requestFriendList) return;
+        const res = await fetch('/api/friends');
+        if (!res.ok) return;
+        const friends = await res.json();
+        if (requestFriendList) {
+            const accepted = friends.filter((friend) => friend.status === 'accepted');
+            requestFriendList.innerHTML = accepted.length ? accepted.map((friend) => {
+                const email = friend.requester_email === ($('authEmail')?.value || '') ? friend.recipient_email : friend.recipient_email;
+                return `<label class="form-check"><input class="form-check-input request-friend-input" type="checkbox" value="${escapeHtml(email)}"> <span class="form-check-label">${escapeHtml(friend.requester_email)} / ${escapeHtml(friend.recipient_email)}</span></label>`;
+            }).join('') : '<p class="small text-secondary mb-0">No accepted friends yet.</p>';
+        }
+        if (!list && requestFriendList) return;
+        if (!friends.length) {
+            list.innerHTML = '<div class="empty-state"><h2 class="h4">No friends yet</h2><p class="text-secondary">Send a request by email to start building your friend list.</p></div>';
+            return;
+        }
+        list.innerHTML = friends.map((friend) => `
+            <div class="card rounded-4 shadow-sm"><div class="card-body p-4">
+                <div class="d-flex justify-content-between gap-3"><div><h2 class="h5">${escapeHtml(friend.requester_email)} → ${escapeHtml(friend.recipient_email)}</h2><p class="mb-0 text-secondary">Status: ${escapeHtml(friend.status)}</p></div><span class="badge text-bg-secondary align-self-start">${escapeHtml(friend.status)}</span></div>
+                ${friend.status === 'pending' ? `<button class="btn btn-outline-primary mt-3 accept-friend" data-id="${friend.id}" type="button">Accept if this is for you</button>` : ''}
+            </div></div>`).join('');
+        list.querySelectorAll('.accept-friend').forEach((button) => button.addEventListener('click', () => acceptFriend(button.dataset.id)));
+    }
+
+    async function sendFriendRequest() {
+        const status = $('friendStatus');
+        if (status) status.textContent = 'Sending friend request…';
+        const res = await fetch('/api/friends', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recipient_email: $('friendEmail')?.value || '' }) });
+        const data = await res.json().catch(() => ({}));
+        if (status) {
+            status.className = res.ok ? 'small mt-3 text-success' : 'small mt-3 text-danger';
+            status.textContent = res.ok ? 'Friend request sent.' : (data.detail || 'Could not send request.');
+        }
+        if (res.ok) loadFriends();
+    }
+
+    async function acceptFriend(id) {
+        await fetch(`/api/friends/${encodeURIComponent(id)}/accept`, { method: 'POST' });
+        loadFriends();
+    }
+
+    function renderRequestPresetControls(presets) {
+        const select = $('timePresetSelect');
+        if (!select) return;
+        select.innerHTML = (presets || []).map((preset) => `<option value="${escapeHtml(preset.id)}">${escapeHtml(preset.name)}</option>`).join('');
+        const quick = $('timePresetQuickButtons');
+        if (quick) {
+            quick.innerHTML = (presets || []).slice(0, 3).map((preset) => `<button class="btn btn-outline-primary preset-quick" data-id="${escapeHtml(preset.id)}" type="button">${escapeHtml(preset.name)}</button>`).join('');
+            quick.querySelectorAll('.preset-quick').forEach((button) => button.addEventListener('click', () => applyPreset(button.dataset.id)));
+        }
+        select.addEventListener('change', () => applyPreset(select.value));
+    }
+
+    function applyPreset(id) {
+        const preset = profilePresets.find((item) => item.id === id);
+        if (!preset || !(preset.windows || []).length) return;
+        document.querySelectorAll('.weekday-input').forEach((input) => { input.checked = false; });
+        const first = preset.windows[0];
+        if ($('windowStart')) $('windowStart').value = first.start;
+        if ($('windowEnd')) $('windowEnd').value = first.end === '23:59' ? '23:59' : first.end;
+        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        preset.windows.forEach((window) => {
+            const checkbox = document.querySelector(`.weekday-input[data-day="${dayNames[window.day]}"]`);
+            if (checkbox) checkbox.checked = true;
+        });
+    }
+
+    async function runDemoMatching() {
+        const date = $('demoDate')?.value || '2026-06-15';
+        const busyA = [{ start: `${date}T10:00:00Z`, end: `${date}T11:30:00Z` }, { start: `${date}T15:00:00Z`, end: `${date}T16:00:00Z` }];
+        const busyB = [{ start: `${date}T09:30:00Z`, end: `${date}T10:30:00Z` }, { start: `${date}T13:00:00Z`, end: `${date}T14:30:00Z` }];
+        if ($('demoBusyA')) $('demoBusyA').textContent = JSON.stringify(busyA, null, 2);
+        if ($('demoBusyB')) $('demoBusyB').textContent = JSON.stringify(busyB, null, 2);
+        const day = (new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7;
+        const res = await fetch('/api/demo/options', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+            time_min: `${date}T00:00:00Z`, time_max: `${date}T23:59:59Z`, duration_minutes: Number($('demoDuration')?.value || 30),
+            allowed_windows: [{ day, start: $('demoWindowStart')?.value || '09:00', end: $('demoWindowEnd')?.value || '18:00' }], max_options: 3, busy_a: busyA, busy_b: busyB,
+        }) });
+        const data = await res.json().catch(() => ({}));
+        const results = $('demoResults');
+        if (!results) return;
+        if (!res.ok) { results.innerHTML = `<div class="alert alert-danger">${escapeHtml(data.detail || 'Demo failed')}</div>`; return; }
+        results.innerHTML = (data.options || []).map((slot, index) => `<div class="col-md-4"><div class="card option-card h-100"><div class="card-body"><span class="badge ${index === 0 ? 'text-bg-success' : 'text-bg-light'}">Option ${index + 1}</span><h2 class="h5 mt-3">${escapeHtml(new Date(slot.start).toLocaleString())}</h2><p>${escapeHtml(new Date(slot.end).toLocaleTimeString())}</p><p class="small text-secondary">${escapeHtml(slot.reason)}</p></div></div></div>`).join('');
+    }
+
     function initAuthCallbackBanner() {
         const params = new URLSearchParams(window.location.search);
         const accountLabel = params.get("account_label");
@@ -421,9 +588,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const weekdays = Array.from(document.querySelectorAll(".weekday-input"))
             .filter((input) => input.checked)
             .map((input) => input.dataset.day);
+        const manualEmails = ($("inviteeEmail")?.value || "").split(",").map((email) => email.trim()).filter(Boolean);
+        const friendEmails = Array.from(document.querySelectorAll(".request-friend-input"))
+            .filter((input) => input.checked)
+            .map((input) => input.value);
+        const inviteeEmails = Array.from(new Set([...manualEmails, ...friendEmails]));
         return {
             title: $("requestTitle")?.value || "Meeting request",
-            invitee_email: $("inviteeEmail")?.value || "",
+            invitee_email: inviteeEmails[0] || "",
+            invitee_emails: inviteeEmails,
+            friend_ids: friendEmails,
+            time_preset_id: $("timePresetSelect")?.value || null,
             duration_minutes: Number($("durationMinutes")?.value || 30),
             earliest_date: $("earliestDate")?.value || "",
             latest_date: $("latestDate")?.value || "",
@@ -705,11 +880,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const saveRequestBtn = $("saveRequestBtn");
     if (saveRequestBtn) saveRequestBtn.onclick = saveRequestDraft;
 
+    const saveProfileBtn = $("saveProfileBtn");
+    if (saveProfileBtn) saveProfileBtn.onclick = saveProfile;
+    const addPresetBtn = $("addPresetBtn");
+    if (addPresetBtn) addPresetBtn.onclick = addPreset;
+    const sendFriendBtn = $("sendFriendBtn");
+    if (sendFriendBtn) sendFriendBtn.onclick = sendFriendRequest;
+    const runDemoBtn = $("runDemoBtn");
+    if (runDemoBtn) runDemoBtn.onclick = runDemoMatching;
+
     populateTimeSelects();
     setDefaultDates();
     initAuthCallbackBanner();
     loadCurrentUser().catch(() => { if (requiresAuth) window.location.replace("/login"); });
     if ($("emails") || $("selectA") || $("statusA")) loadAccounts().catch(() => { });
+    loadProfile().catch(() => { });
+    loadFriends().catch(() => { });
     loadRequests().catch(() => { });
+    if ($("runDemoBtn")) runDemoMatching().catch(() => { });
     loadInvitePreview().catch(() => setInviteStatus("Could not load this invite.", true));
 });
