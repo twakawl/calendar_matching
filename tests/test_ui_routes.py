@@ -41,6 +41,11 @@ class PrototypeUiRoutesTest(unittest.TestCase):
         self.assertIn("latestDate", request_page)
         self.assertIn("weekday-input", request_page)
 
+        stylesheet = (REPO_ROOT / "static" / "css" / "style.css").read_text()
+        self.assertIn("overflow-x: hidden", stylesheet)
+        self.assertIn("overscroll-behavior-x: contain", stylesheet)
+        self.assertIn("@media (max-width: 575.98px)", stylesheet)
+
     def test_product_ui_routes_render_html(self):
         """FastAPI should serve each planned UI page without requiring OAuth config."""
         routes = [
