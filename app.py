@@ -201,6 +201,7 @@ class MeetingRequest(Base):
     window_start = Column(String, nullable=False, default="09:00")
     window_end = Column(String, nullable=False, default="17:00")
     allowed_weekdays = Column(String, nullable=False, default="[]")
+    allowed_windows = Column(String, nullable=False, default="[]")
     notes = Column(String, nullable=True)
     status = Column(String, nullable=False, default="draft")
     invite_token_hash = Column(String, nullable=True, unique=True, index=True)
@@ -289,6 +290,7 @@ def _run_lightweight_migrations() -> None:
                 "invitee_emails": "VARCHAR",
                 "friend_ids": "VARCHAR",
                 "time_preset_id": "VARCHAR",
+                "allowed_windows": "VARCHAR DEFAULT '[]'",
                 "invite_token_hash": "VARCHAR",
                 "invite_expires_at": "DATETIME",
                 "invite_opened_at": "DATETIME",
@@ -769,6 +771,7 @@ class MeetingRequestCreate(BaseModel):
     window_start: str = "09:00"
     window_end: str = "17:00"
     allowed_weekdays: list[str] = Field(default_factory=list)
+    allowed_windows: list[TimeWindow] = Field(default_factory=list)
     notes: Optional[str] = None
 
 
@@ -797,6 +800,7 @@ class InvitePreviewResponse(BaseModel):
     window_start: str
     window_end: str
     allowed_weekdays: list[str]
+    allowed_windows: list[TimeWindow] = Field(default_factory=list)
     status: str
     expires_at: datetime
 
@@ -1215,6 +1219,23 @@ def _allowed_weekdays_for(record: MeetingRequest) -> list[str]:
         return []
 
 
+def _allowed_windows_for(record: MeetingRequest) -> list[TimeWindow]:
+    """Decode added availability windows, falling back to legacy weekday/hour fields."""
+    try:
+        value = json.loads(record.allowed_windows or "[]")
+        if isinstance(value, list) and value:
+            return [TimeWindow(**item) for item in value]
+    except Exception:
+        pass
+
+    day_lookup = {"Mon": 0, "Tue": 1, "Wed": 2, "Thu": 3, "Fri": 4, "Sat": 5, "Sun": 6}
+    return [
+        TimeWindow(day=day_lookup[day], start=record.window_start, end=record.window_end)
+        for day in _allowed_weekdays_for(record)
+        if day in day_lookup
+    ]
+
+
 def _invitee_emails_for(record: MeetingRequest) -> list[str]:
     """Decode all invitee emails, falling back to the legacy single email column."""
     try:
@@ -1244,6 +1265,7 @@ def _meeting_request_response(
         window_start=record.window_start,
         window_end=record.window_end,
         allowed_weekdays=_allowed_weekdays_for(record),
+        allowed_windows=_allowed_windows_for(record),
         notes=record.notes,
         status=record.status,
         invite_url=f"/invite/{invite_token}" if invite_token else None,
@@ -1350,6 +1372,9 @@ def _validate_meeting_request_payload(payload: MeetingRequestCreate) -> None:
         raise HTTPException(status_code=400, detail="Latest date must be on or after earliest date")
     if payload.window_start >= payload.window_end:
         raise HTTPException(status_code=400, detail="Start time must be before end time")
+    for window in payload.allowed_windows:
+        if window.start >= window.end:
+            raise HTTPException(status_code=400, detail="Every added time window needs a start time before its end time")
 
 
 @app.get("/api/requests", response_model=list[MeetingRequestResponse], tags=["Meeting requests"])
@@ -1390,6 +1415,7 @@ async def create_meeting_request(
         window_start=payload.window_start,
         window_end=payload.window_end,
         allowed_weekdays=json.dumps(payload.allowed_weekdays),
+        allowed_windows=json.dumps([window.model_dump() for window in payload.allowed_windows]),
         notes=payload.notes.strip() if payload.notes else None,
         status="draft",
         created_at=now,
@@ -1496,6 +1522,7 @@ async def preview_invite(token: str):
             window_start=record.window_start,
             window_end=record.window_end,
             allowed_weekdays=_allowed_weekdays_for(record),
+            allowed_windows=_allowed_windows_for(record),
             status=record.status,
             expires_at=record.invite_expires_at,
         )
