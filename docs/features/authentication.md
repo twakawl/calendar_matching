@@ -29,16 +29,16 @@ Users must log in before connecting calendars, creating meeting requests, accept
 - Logout revokes the current session token.
 - Calendar account listing, Google OAuth start, free/busy reads, paired availability, and matching now require an authenticated app user.
 - Unauthenticated browser users are redirected to `/login`; registration lives separately at `/register`, and display name is not collected on login.
-- The authenticated app shell shows the current user name or email in a top-right user menu with logout.
+- The authenticated app shell shows primary navigation links plus a clear top-right personal dropdown for Profile, Friends, Account, Demo request, and logout.
 - Connected Google calendar slots are owned by the logged-in user while still exposing prototype slot names `a` and `b` in the UI.
 
 Still deferred:
 
-- Real Google/Microsoft app-login implementation. The current buttons route to explicit placeholder endpoints while calendar-link OAuth remains separate.
+- Real Google/Microsoft app-login implementation. The current buttons are visible next to email login and route to explicit placeholder endpoints while calendar-link OAuth remains separate.
 - Password reset and email verification.
 - CSRF hardening and broader production session controls.
-- Redirecting invite links back to the original request after login; invite links are not implemented yet.
-- Authorization checks for meeting requests and agenda views; those product objects are not implemented yet.
+- Returning invitees to the exact invite/request context after login is still basic and should be hardened.
+- Broader production authorization/audit coverage for future agenda views and calendar-write objects is still deferred.
 
 ## User stories
 

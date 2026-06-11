@@ -41,6 +41,19 @@ document.addEventListener("DOMContentLoaded", () => {
         window.location.replace(nextUrl());
     }
 
+    document.querySelectorAll("[data-provider-login]").forEach((link) => {
+        link.addEventListener("click", async (event) => {
+            event.preventDefault();
+            const provider = link.dataset.providerLogin || "Provider";
+            setStatus(`${provider} app login is planned. Please use email login in this prototype.`);
+            try {
+                await fetch(link.getAttribute("href"));
+            } catch {
+                // The explanatory status above is the user-facing fallback.
+            }
+        });
+    });
+
     $("loginBtn")?.addEventListener("click", () => submitAuth("login"));
     const registerBtn = $("registerBtn");
     if (registerBtn && registerBtn.tagName === "BUTTON") {

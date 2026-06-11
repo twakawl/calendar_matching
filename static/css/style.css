@@ -325,3 +325,116 @@ body {
         flex: 1 1 auto;
     }
 }
+
+.app-navbar {
+    background: rgba(255, 255, 255, 0.92);
+    border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.04);
+}
+
+.app-navbar .navbar-brand {
+    letter-spacing: -0.02em;
+}
+
+.app-navbar .nav-link {
+    color: #334155;
+    font-weight: 650;
+}
+
+.app-navbar .nav-link:hover,
+.app-navbar .nav-link:focus {
+    color: var(--cm-primary);
+}
+
+.auth-page {
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at 12% 18%, rgba(37, 99, 235, 0.16), transparent 28rem),
+        radial-gradient(circle at 90% 12%, rgba(22, 163, 74, 0.12), transparent 24rem),
+        linear-gradient(135deg, #ffffff 0%, #eef6ff 60%, #f8fafc 100%);
+}
+
+.auth-card,
+.profile-hero {
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(10px);
+}
+
+.primary-action {
+    box-shadow: 0 16px 34px rgba(37, 99, 235, 0.24);
+    font-weight: 800;
+}
+
+.nav-quiet {
+    color: #475569;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.provider-divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: var(--cm-secondary);
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.provider-divider::before,
+.provider-divider::after {
+    content: "";
+    flex: 1 1 auto;
+    height: 1px;
+    background: var(--cm-border);
+}
+
+.btn-provider {
+    border: 1px solid var(--cm-border);
+    background: #fff;
+    color: #0f172a;
+    font-weight: 750;
+    padding-block: 0.85rem;
+}
+
+.btn-provider:hover,
+.btn-provider:focus {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.preset-helper {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e3a8a;
+}
+
+.preset-card {
+    background: #fff;
+    box-shadow: 0 12px 26px rgba(15, 23, 42, 0.05);
+}
+
+.dropdown-menu.rounded-4 {
+    border: 1px solid var(--cm-border);
+    padding: 0.6rem;
+}
+
+.dropdown-menu.rounded-4 .dropdown-item {
+    border-radius: 0.75rem;
+    font-weight: 650;
+}
+
+#timePresetQuickButtons .btn.active {
+    color: #fff;
+    background: var(--cm-primary);
+    border-color: var(--cm-primary);
+}
+
+@media (min-width: 992px) {
+    .auth-card {
+        transform: translateY(0);
+    }
+}

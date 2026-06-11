@@ -45,6 +45,15 @@ Mobile users should be able to:
 
 Advanced calendar comparison can be more comfortable on laptop, but it should still degrade gracefully on mobile.
 
+
+### 6. Keep navigation and pop-up menus obvious
+
+The top navigation should expose the highest-frequency destinations directly: Dashboard, New request, Account, and Demo request. Personal destinations should be grouped in a single dropdown labelled with the current user's name/email where possible. The dropdown should contain Profile, Friends, Account, Demo request, and Log out. Avoid hiding the primary creation path inside the dropdown.
+
+### 7. Make the biggest control the next best action
+
+Authentication pages should make email login/register the largest card because that is the implemented path. Request creation should make **Find best options** larger than secondary draft-saving actions. Demo pages should make **Run demo match** the largest action so the prototype is easy to test.
+
 ***
 
 # Main pages
