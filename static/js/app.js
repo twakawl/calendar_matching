@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let showCalendarA = true;
     let showCalendarB = true;
     let accountsLoaded = 0;
+    let currentUser = null;
     const requiresAuth = document.body.dataset.requiresAuth === "true";
 
     function $(id) {
@@ -103,6 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return null;
         }
         const user = await res.json();
+        currentUser = user;
         setSessionUi(user);
         return user;
     }
@@ -488,14 +490,18 @@ document.addEventListener("DOMContentLoaded", () => {
         const list = $('friendList');
         const requestFriendList = $('requestFriendList');
         if (!list && !requestFriendList) return;
+        if (!currentUser) {
+            await loadCurrentUser().catch(() => null);
+        }
         const res = await fetch('/api/friends');
         if (!res.ok) return;
         const friends = await res.json();
         if (requestFriendList) {
             const accepted = friends.filter((friend) => friend.status === 'accepted');
             requestFriendList.innerHTML = accepted.length ? accepted.map((friend) => {
-                const email = friend.requester_email === ($('authEmail')?.value || '') ? friend.recipient_email : friend.recipient_email;
-                return `<label class="form-check"><input class="form-check-input request-friend-input" type="checkbox" value="${escapeHtml(email)}"> <span class="form-check-label">${escapeHtml(friend.requester_email)} / ${escapeHtml(friend.recipient_email)}</span></label>`;
+                const ownEmail = currentUser?.email || '';
+                const email = friend.requester_email === ownEmail ? friend.recipient_email : friend.requester_email;
+                return `<label class="form-check"><input class="form-check-input request-friend-input" type="checkbox" value="${escapeHtml(email)}"> <span class="form-check-label">${escapeHtml(email)}</span></label>`;
             }).join('') : '<p class="small text-secondary mb-0">No accepted friends yet.</p>';
         }
         if (!list && requestFriendList) return;
@@ -535,7 +541,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const quick = $('timePresetQuickButtons');
         if (quick) {
             quick.innerHTML = (presets || []).slice(0, 3).map((preset) => `<button class="btn btn-outline-primary preset-quick" data-id="${escapeHtml(preset.id)}" type="button">${escapeHtml(preset.name)}</button>`).join('');
-            quick.querySelectorAll('.preset-quick').forEach((button) => button.addEventListener('click', () => applyPreset(button.dataset.id)));
+            quick.querySelectorAll('.preset-quick').forEach((button) => button.addEventListener('click', () => { if (select) select.value = button.dataset.id; applyPreset(button.dataset.id); quick.querySelectorAll('.preset-quick').forEach((btn) => btn.classList.toggle('active', btn === button)); }));
         }
         select.addEventListener('change', () => applyPreset(select.value));
     }

@@ -34,7 +34,7 @@ The setup instructions that are needed for the current prototype are included be
 - Google Calendar free/busy reads for primary calendars only; event titles, descriptions, attendees, and locations are not fetched.
 - Combined busy-block response for two connected accounts.
 - MVP matching endpoint that returns the top three non-overlapping meeting options from duration, weekday, allowed-hour, and busy-block constraints.
-- Bootstrap-based multi-page frontend with a public informational home page, top-right login button, separate login and registration pages, authenticated dashboard, account/calendar connection cards, profile and friends pages, SQLite-backed multi-invitee request creation/listing, secure invite preview with accept/decline actions, request-detail placeholders, responsive availability preview, a public demo request, and live top-three matching cards backed by the existing Google free/busy prototype.
+- Bootstrap-based multi-page frontend with a public informational home page, polished login/register screens, a clear top navigation bar with personal dropdown menu, authenticated dashboard, account/calendar connection cards, profile and friends pages, SQLite-backed multi-invitee request creation/listing, secure invite preview with accept/decline actions, request-detail placeholders, responsive availability preview, a public demo request, and live top-three matching cards backed by the existing Google free/busy prototype.
 - Automatic access-token refresh before Calendar API calls.
 
 ## Future implementation scope
@@ -204,13 +204,13 @@ http://127.0.0.1:8000/oauth/start?account_label=b
 The current frontend implements the first UI milestone from `docs/ui-design-plan.md` as static Bootstrap pages with placeholders where backend request persistence and participant workflows will be added later:
 
 - `/` — public landing page with privacy-first product explanation and a top-right login button.
-- `/login` — first-party email login page with Google/Microsoft app-login placeholders.
+- `/login` — first-party email login page with prominent email login, secondary Google/Microsoft app-login placeholders, and privacy guidance.
 - `/register` — first-party registration page with display name collection.
-- `/profile` — authenticated personal profile with display name, phone number, timezone preference, linked calendar preference, and ordered time presets.
+- `/profile` — authenticated personal profile with display name, phone number, timezone preference, linked calendar preference, ordered time presets, and a personal dropdown menu shared with friends/account routes.
 - `/friends` — authenticated friend list with email request/accept flow and disabled contact-import placeholders.
 - `/account` — authenticated Google Calendar connection cards for prototype slots A and B, plus a Microsoft Calendar placeholder.
 - `/dashboard` — authenticated list of SQLite-backed requests visible to the requester or accepted invitee, with an action to regenerate invite links.
-- `/requests/new` — authenticated request creation wizard-style form with title, multiple invitee emails, friend selections, ordered time-preset controls, duration, date range, weekday chips, time window, SQLite save action, live matching button, top-three option cards, and secondary availability preview.
+- `/requests/new` — authenticated request creation wizard-style form with title, multiple invitee emails, friend selections, three quick preset buttons plus ordered preset dropdown, duration, date range, weekday chips, time window, SQLite save action, prominent live matching button, top-three option cards, and secondary availability preview.
 - `/invite/{token}` — public secure invite preview that resolves non-sensitive request details from a hashed expiring token and lets the matching logged-in invitee accept or decline.
 - `/requests/demo` — public demo request that runs the matching engine against two separate demo calendar busy registries.
 - `/requests/demo-request` — request detail placeholder with participant readiness, option cards, and agreement-state placeholders.

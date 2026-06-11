@@ -68,3 +68,11 @@ A logged-in user can create a meeting request and invite another user through a 
 - Request access checks now allow only the requester, invitee email, or accepted invitee user to fetch request details after authentication.
 - Request lifecycle audit events are recorded for creation, invite generation, opening, acceptance, and decline.
 - Remaining future work: normalized participant rows, participant-specific calendar readiness for every invitee, secure email delivery, richer lifecycle transitions, and persistent proposed options.
+
+## Current UX additions for request creation
+
+- The request creation page uses a step-based card so basics, participants, dates, and rules are easier to scan.
+- The three highest-priority time presets are exposed as quick buttons, while every ordered profile preset remains available in a dropdown.
+- The primary action is visually emphasized as **Find best options**; saving the SQLite draft remains available as a secondary action.
+- Multiple typed invitee emails and accepted friend selections are combined into the request payload.
+- Top-three option cards appear before the detailed availability grid so users first see the product's main recommendation.

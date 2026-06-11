@@ -2,7 +2,15 @@
 
 ## Purpose
 
-This slice moves the prototype from a two-slot calendar test toward a user-centered scheduling product. The work was planned as a documentation-first feature group and then implemented in the FastAPI prototype.
+This slice moves the prototype from a two-slot calendar test toward a user-centered scheduling product. The work is intentionally documentation-first: describe the intended experience, then implement the matching UI/API pieces, then verify the pages and tests still match the feature contracts.
+
+## UX priorities for this slice
+
+- Make the most important action visually largest: on login this is **Log in with email**, and on request creation this is **Find best options**.
+- Keep the top navigation predictable: primary product routes are visible in the bar, while personal actions live in a clearly labeled user dropdown.
+- Use pop-up/dropdown menus for secondary personal actions only: Profile, Friends, Account, Demo request, and Log out.
+- Keep privacy reassurance close to authentication and calendar-linking moments.
+- Avoid overwhelming users with calendar internals; show top-three meeting options before detailed availability previews.
 
 ## Planned features
 
@@ -12,6 +20,8 @@ This slice moves the prototype from a two-slot calendar test toward a user-cente
 - Add visible app-login options for Google and Microsoft next to email login so the UI shape is ready for future identity providers.
 - Split registration into `/register`.
 - Keep `display_name` only on registration and profile editing, not on login.
+- Make the email login card the visual focus, with Google/Microsoft presented as secondary choices.
+- Add explicit helper text when Google/Microsoft app-login is selected because true provider login is still planned.
 
 ### 2. Personal profile
 
@@ -25,6 +35,7 @@ This slice moves the prototype from a two-slot calendar test toward a user-cente
   - Weekend evening: Friday/Saturday 18:00–00:00.
   - Working hours: weekdays 08:00–18:00.
 - Allow users to add custom presets and reorder presets.
+- Show preset order clearly with up/down controls and human-readable summaries.
 
 ### 3. Meeting request enhancements
 
@@ -32,6 +43,7 @@ This slice moves the prototype from a two-slot calendar test toward a user-cente
 - Allow multiple invitee emails in one request payload.
 - Allow adding accepted friends as participants.
 - Keep invite links usable by people who need to log in or register before accepting and linking a calendar.
+- Give the request creator a clear step flow: basics, dates, rules, then review/match.
 
 ### 4. Friends
 
@@ -39,12 +51,14 @@ This slice moves the prototype from a two-slot calendar test toward a user-cente
 - Allow users to send friend requests to email addresses.
 - Allow recipients to accept requests.
 - Add greyed-out placeholder buttons for Gmail, Apple, Microsoft, and Android contact imports.
+- Show pending and accepted friend relationships as cards with clear status badges.
 
 ### 5. Demo request
 
 - Add `/requests/demo` as a public demo page.
 - Keep two demo calendar busy registries separate from personally linked calendars.
 - Reuse the same matching engine through a demo API endpoint so the flow remains testable without OAuth.
+- Use the same top-three option card visual language as real requests.
 
 ## Implemented prototype scope
 
@@ -52,6 +66,17 @@ This slice moves the prototype from a two-slot calendar test toward a user-cente
 - Added private profile and friends APIs and pages.
 - Added a public demo matching endpoint and page.
 - Added provider-login placeholder endpoints returning `501 Not Implemented`, because true Google/Microsoft app-login requires provider client configuration separate from calendar-link OAuth.
+- Added a clearer top navigation pattern with visible primary links and a personal dropdown for profile/friends/account/logout.
+- Improved the login/register/profile/friends/request/demo pages so the main action is prominent, secondary actions are visually quieter, and privacy/helper copy appears near risky decisions.
+
+## Verification checklist
+
+- `/login` shows email login plus Google and Microsoft provider-login choices, and it does not collect display name.
+- `/register` is separate and does collect display name.
+- `/profile` can edit display name, phone, timezone, linked calendar preference, and ordered presets.
+- `/requests/new` shows three quick preset buttons, an ordered preset dropdown, multiple invitee-email support, accepted-friend selection, and top-three matching cards.
+- `/friends` supports email-based friend requests and acceptance, with disabled contact-import placeholders.
+- `/requests/demo` runs matching from two demo calendar registries without using personal calendar connections.
 
 ## Follow-up work
 
