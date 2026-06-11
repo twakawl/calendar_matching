@@ -579,3 +579,16 @@ section,
         transform: translateY(0);
     }
 }
+
+.errorText {
+    color: #b91c1c;
+    font-weight: 700;
+}
+
+.registration-warning {
+    border-left: 0.35rem solid var(--cm-warning);
+}
+
+.auth-switch-text a {
+    font-weight: 800;
+}

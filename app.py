@@ -906,6 +906,41 @@ def _serve_authenticated_html(request: Request, filename: str) -> HTMLResponse:
     return _serve_html(filename)
 
 
+def _not_implemented_page(feature_name: str) -> HTMLResponse:
+    """Render an app-style placeholder for planned functionality."""
+    safe_feature_name = feature_name.replace("<", "&lt;").replace(">", "&gt;")
+    content = f"""<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{safe_feature_name} not implemented · Calendar Matching</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="auth-page">
+    <div id="health" title="API health"></div>
+    <nav class="navbar navbar-expand-lg app-navbar sticky-top"><div class="container"><a class="navbar-brand fw-bold" href="/">Calendar Matching</a></div></nav>
+    <main class="container py-5 py-lg-6">
+        <div class="row justify-content-center"><div class="col-lg-8 col-xl-7">
+            <div class="auth-card card shadow-lg rounded-5 border-0"><div class="card-body p-4 p-lg-5 text-center">
+                <p class="text-uppercase small fw-semibold text-primary mb-2">Planned functionality</p>
+                <h1 class="display-6 fw-bold mb-3">{safe_feature_name} is not implemented yet.</h1>
+                <p class="lead text-secondary">This page is a safe placeholder so unfinished Google, Microsoft, and other future actions do not fail silently.</p>
+                <div class="d-flex flex-column flex-sm-row gap-2 justify-content-center mt-4">
+                    <a class="btn btn-primary btn-lg" href="/">Back to home</a>
+                    <button class="btn btn-outline-primary btn-lg" type="button" onclick="history.back()">Back to previous page</button>
+                </div>
+            </div></div>
+        </div></div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>"""
+    return HTMLResponse(content=content, status_code=200)
+
+
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Serve the standalone login page for unauthenticated users."""
@@ -944,6 +979,25 @@ async def demo_request_page():
 async def account_page(request: Request):
     """Serve the account and calendar connection page."""
     return _serve_authenticated_html(request, "account.html")
+
+
+@app.get("/not-implemented/{feature_slug}", response_class=HTMLResponse)
+async def not_implemented_page(feature_slug: str):
+    """Serve an app page for non-working planned features."""
+    feature_names = {
+        "google-login": "Google app login",
+        "microsoft-login": "Microsoft app login",
+        "microsoft-calendar": "Microsoft Calendar connection",
+        "google-contact-import": "Google contact import",
+        "apple-contact-import": "Apple contact import",
+        "microsoft-contact-import": "Microsoft contact import",
+        "android-contact-import": "Android contact import",
+    }
+    feature_name = feature_names.get(
+        feature_slug,
+        feature_slug.replace("-", " ").strip().title() or "This feature",
+    )
+    return _not_implemented_page(feature_name)
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
@@ -1064,7 +1118,14 @@ async def login_user(request: AuthRequest, response: Response):
     try:
         repository = SQLiteIdentityRepository(db)
         try:
-            user = repository.authenticate_user(request.email, request.password)
+            normalized_email = _normalize_email(request.email)
+            existing_user = db.query(User).filter_by(email=normalized_email).first()
+            if not existing_user:
+                raise HTTPException(
+                    status_code=404,
+                    detail="No registered account exists for this email. Please register first.",
+                )
+            user = repository.authenticate_user(normalized_email, request.password)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         if not user:
@@ -1137,12 +1198,12 @@ async def list_time_presets(current_user: User = Depends(require_current_user)):
     return _presets_for_user(current_user)
 
 
-@app.get("/auth/oauth/{provider}", tags=["Authentication"])
+@app.get("/auth/oauth/{provider}", response_class=HTMLResponse, tags=["Authentication"])
 async def oauth_login_placeholder(provider: str):
     """Advertise future app-login OAuth providers without mixing them with calendar linking."""
     if provider not in {"google", "microsoft"}:
         raise HTTPException(status_code=404, detail="Unsupported login provider")
-    raise HTTPException(status_code=501, detail=f"{provider.title()} app login is planned; use email login for this prototype")
+    return _not_implemented_page(f"{provider.title()} app login")
 
 
 def _allowed_weekdays_for(record: MeetingRequest) -> list[str]:
