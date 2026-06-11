@@ -151,6 +151,7 @@ class User(Base):
     timezone_preference = Column(String, nullable=False, default="UTC")
     time_presets = Column(String, nullable=True)
     linked_calendar_label = Column(String, nullable=True)
+    linked_calendar_labels = Column(String, nullable=True)
     password_hash = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -274,6 +275,7 @@ def _run_lightweight_migrations() -> None:
                 "timezone_preference": "VARCHAR DEFAULT 'UTC'",
                 "time_presets": "VARCHAR",
                 "linked_calendar_label": "VARCHAR",
+                "linked_calendar_labels": "VARCHAR",
             }
             for column_name, column_type in user_additive_columns.items():
                 if column_name not in user_columns:
@@ -736,6 +738,7 @@ class UserResponse(BaseModel):
     phone_number: Optional[str] = None
     timezone_preference: str = "UTC"
     linked_calendar_label: Optional[str] = None
+    linked_calendar_labels: list[str] = Field(default_factory=list)
     time_presets: list[TimePreset] = Field(default_factory=list)
     created_at: datetime
 
@@ -745,6 +748,7 @@ class ProfileUpdate(BaseModel):
     phone_number: Optional[str] = None
     timezone_preference: str = "UTC"
     linked_calendar_label: Optional[str] = None
+    linked_calendar_labels: list[str] = Field(default_factory=list)
     time_presets: list[TimePreset] = Field(default_factory=list)
 
 
@@ -906,6 +910,41 @@ def _serve_authenticated_html(request: Request, filename: str) -> HTMLResponse:
     return _serve_html(filename)
 
 
+def _not_implemented_page(feature_name: str) -> HTMLResponse:
+    """Render an app-style placeholder for planned functionality."""
+    safe_feature_name = feature_name.replace("<", "&lt;").replace(">", "&gt;")
+    content = f"""<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{safe_feature_name} not implemented · Calendar Matching</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="auth-page">
+    <div id="health" title="API health"></div>
+    <nav class="navbar navbar-expand-lg app-navbar sticky-top"><div class="container"><a class="navbar-brand fw-bold" href="/">Calendar Matching</a></div></nav>
+    <main class="container py-5 py-lg-6">
+        <div class="row justify-content-center"><div class="col-lg-8 col-xl-7">
+            <div class="auth-card card shadow-lg rounded-5 border-0"><div class="card-body p-4 p-lg-5 text-center">
+                <p class="text-uppercase small fw-semibold text-primary mb-2">Planned functionality</p>
+                <h1 class="display-6 fw-bold mb-3">{safe_feature_name} is not implemented yet.</h1>
+                <p class="lead text-secondary">This page is a safe placeholder so unfinished Google, Microsoft, and other future actions do not fail silently.</p>
+                <div class="d-flex flex-column flex-sm-row gap-2 justify-content-center mt-4">
+                    <a class="btn btn-primary btn-lg" href="/">Back to home</a>
+                    <button class="btn btn-outline-primary btn-lg" type="button" onclick="history.back()">Back to previous page</button>
+                </div>
+            </div></div>
+        </div></div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>"""
+    return HTMLResponse(content=content, status_code=200)
+
+
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     """Serve the standalone login page for unauthenticated users."""
@@ -944,6 +983,25 @@ async def demo_request_page():
 async def account_page(request: Request):
     """Serve the account and calendar connection page."""
     return _serve_authenticated_html(request, "account.html")
+
+
+@app.get("/not-implemented/{feature_slug}", response_class=HTMLResponse)
+async def not_implemented_page(feature_slug: str):
+    """Serve an app page for non-working planned features."""
+    feature_names = {
+        "google-login": "Google app login",
+        "microsoft-login": "Microsoft app login",
+        "microsoft-calendar": "Microsoft Calendar connection",
+        "google-contact-import": "Google contact import",
+        "apple-contact-import": "Apple contact import",
+        "microsoft-contact-import": "Microsoft contact import",
+        "android-contact-import": "Android contact import",
+    }
+    feature_name = feature_names.get(
+        feature_slug,
+        feature_slug.replace("-", " ").strip().title() or "This feature",
+    )
+    return _not_implemented_page(feature_name)
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
@@ -994,15 +1052,29 @@ def _presets_for_user(user: User) -> list[TimePreset]:
     return DEFAULT_TIME_PRESETS
 
 
+def _linked_calendar_labels_for_user(user: User) -> list[str]:
+    """Return the profile's selected calendar labels, preserving legacy single-label data."""
+    if getattr(user, "linked_calendar_labels", None):
+        try:
+            labels = json.loads(user.linked_calendar_labels)
+            if isinstance(labels, list):
+                return [str(label) for label in labels if str(label).strip()]
+        except Exception:
+            pass
+    return [user.linked_calendar_label] if user.linked_calendar_label else []
+
+
 def _user_response(user: User) -> UserResponse:
     """Serialize a user without credentials."""
+    linked_labels = _linked_calendar_labels_for_user(user)
     return UserResponse(
         id=user.id,
         email=user.email,
         display_name=user.display_name,
         phone_number=user.phone_number,
         timezone_preference=user.timezone_preference or "UTC",
-        linked_calendar_label=user.linked_calendar_label,
+        linked_calendar_label=user.linked_calendar_label or (linked_labels[0] if linked_labels else None),
+        linked_calendar_labels=linked_labels,
         time_presets=_presets_for_user(user),
         created_at=user.created_at,
     )
@@ -1050,7 +1122,14 @@ async def login_user(request: AuthRequest, response: Response):
     try:
         repository = SQLiteIdentityRepository(db)
         try:
-            user = repository.authenticate_user(request.email, request.password)
+            normalized_email = _normalize_email(request.email)
+            existing_user = db.query(User).filter_by(email=normalized_email).first()
+            if not existing_user:
+                raise HTTPException(
+                    status_code=404,
+                    detail="No registered account exists for this email. Please register first.",
+                )
+            user = repository.authenticate_user(normalized_email, request.password)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         if not user:
@@ -1103,7 +1182,11 @@ async def update_profile(payload: ProfileUpdate, current_user: User = Depends(re
         user.display_name = payload.display_name.strip() if payload.display_name else None
         user.phone_number = payload.phone_number.strip() if payload.phone_number else None
         user.timezone_preference = payload.timezone_preference.strip() or "UTC"
-        user.linked_calendar_label = payload.linked_calendar_label
+        linked_labels = [label.strip() for label in payload.linked_calendar_labels if label.strip()]
+        if not linked_labels and payload.linked_calendar_label:
+            linked_labels = [payload.linked_calendar_label.strip()]
+        user.linked_calendar_label = linked_labels[0] if linked_labels else None
+        user.linked_calendar_labels = json.dumps(linked_labels)
         user.time_presets = json.dumps([preset.model_dump() for preset in payload.time_presets])
         db.add(user)
         db.commit()
@@ -1119,12 +1202,12 @@ async def list_time_presets(current_user: User = Depends(require_current_user)):
     return _presets_for_user(current_user)
 
 
-@app.get("/auth/oauth/{provider}", tags=["Authentication"])
+@app.get("/auth/oauth/{provider}", response_class=HTMLResponse, tags=["Authentication"])
 async def oauth_login_placeholder(provider: str):
     """Advertise future app-login OAuth providers without mixing them with calendar linking."""
     if provider not in {"google", "microsoft"}:
         raise HTTPException(status_code=404, detail="Unsupported login provider")
-    raise HTTPException(status_code=501, detail=f"{provider.title()} app login is planned; use email login for this prototype")
+    return _not_implemented_page(f"{provider.title()} app login")
 
 
 def _allowed_weekdays_for(record: MeetingRequest) -> list[str]:

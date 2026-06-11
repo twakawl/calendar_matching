@@ -27,7 +27,7 @@ This slice moves the prototype from a two-slot calendar test toward a user-cente
 
 - Add `/profile` as a private page.
 - Make display name editable after registration.
-- Store phone number, timezone preference, linked calendar preference, and ordered time presets.
+- Store phone number, timezone preference, multiple linked calendar selections, and ordered time presets.
 - Seed standard presets:
   - Week-evening: weekdays 18:00–21:00.
   - Weekend: Friday 18:00 through Sunday 21:00.
@@ -35,7 +35,7 @@ This slice moves the prototype from a two-slot calendar test toward a user-cente
   - Weekend evening: Friday/Saturday 18:00–00:00.
   - Working hours: weekdays 08:00–18:00.
 - Allow users to add custom presets and reorder presets.
-- Show preset order clearly with up/down controls and human-readable summaries.
+- Show preset order clearly with up/down controls, selectable weekday chips, time fields, and human-readable summaries.
 
 ### 3. Meeting request enhancements
 
@@ -56,7 +56,7 @@ This slice moves the prototype from a two-slot calendar test toward a user-cente
 ### 5. Demo request
 
 - Add `/requests/demo` as a public demo page.
-- Keep two demo calendar busy registries separate from personally linked calendars.
+- Keep two demo connector cards and their busy registries separate from personally linked calendars.
 - Reuse the same matching engine through a demo API endpoint so the flow remains testable without OAuth.
 - Use the same top-three option card visual language as real requests.
 
@@ -73,10 +73,10 @@ This slice moves the prototype from a two-slot calendar test toward a user-cente
 
 - `/login` shows email login plus Google and Microsoft provider-login choices, and it does not collect display name.
 - `/register` is separate and does collect display name.
-- `/profile` can edit display name, phone, timezone, linked calendar preference, and ordered presets.
+- `/profile` can edit display name, phone, timezone, multiple linked calendar selections, and ordered presets with day/time controls.
 - `/requests/new` shows three quick preset buttons, an ordered preset dropdown, multiple invitee-email support, accepted-friend selection, and top-three matching cards.
 - `/friends` supports email-based friend requests and acceptance, with disabled contact-import placeholders.
-- `/requests/demo` runs matching from two demo calendar registries without using personal calendar connections.
+- `/requests/demo` runs matching from two demo calendar connectors/registries without using personal calendar connections.
 
 ## Follow-up work
 

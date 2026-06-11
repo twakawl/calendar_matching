@@ -28,7 +28,13 @@ class UiFunctionalityContractTest(unittest.TestCase):
         self.assertIn('id="authPassword"', login_html)
         self.assertIn('id="loginBtn"', login_html)
         self.assertIn('id="registerBtn"', login_html)
+        self.assertIn('id="registrationPrompt"', login_html)
+        self.assertIn('No account yet?', login_html)
         self.assertNotIn('id="authA"', login_html)
+
+        register_html = (HTML_DIR / "register.html").read_text()
+        self.assertIn('id="authDisplayName"', register_html)
+        self.assertIn('I already have an account', register_html)
 
     def test_request_creation_page_keeps_matching_form_contract(self):
         """The live matching flow depends on stable form, result, and grid IDs."""
@@ -71,6 +77,25 @@ class UiFunctionalityContractTest(unittest.TestCase):
         self.assertIn('window.location = "/oauth/start?account_label=b"', app_js)
         self.assertIn('setAvailabilityWindows(preset.windows)', app_js)
         self.assertIn("collectAvailabilityWindows('demoTimeWindowsContainer')", app_js)
+
+    def test_not_implemented_pages_keep_navigation_contract(self):
+        """Placeholder feature pages must provide home and previous-page actions."""
+        app_py = (REPO_ROOT / "app.py").read_text()
+
+        self.assertIn('/not-implemented/{feature_slug}', app_py)
+        self.assertIn('Back to home', app_py)
+        self.assertIn('Back to previous page', app_py)
+
+        login_html = (HTML_DIR / "login.html").read_text()
+        account_html = (HTML_DIR / "account.html").read_text()
+        friends_html = (HTML_DIR / "friends.html").read_text()
+        self.assertIn('/not-implemented/google-login', login_html)
+        self.assertIn('/not-implemented/microsoft-login', login_html)
+        self.assertIn('/not-implemented/microsoft-calendar', account_html)
+        self.assertIn('/not-implemented/google-contact-import', friends_html)
+        self.assertIn('/not-implemented/apple-contact-import', friends_html)
+        self.assertIn('/not-implemented/microsoft-contact-import', friends_html)
+        self.assertIn('/not-implemented/android-contact-import', friends_html)
 
     def test_oauth_callback_returns_to_account_page_for_new_templates(self):
         """After OAuth, users should return to a page that has the account status UI."""
