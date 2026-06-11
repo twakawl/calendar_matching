@@ -212,7 +212,7 @@ The current frontend implements the first UI milestone from `docs/ui-design-plan
 - `/dashboard` — authenticated list of SQLite-backed requests visible to the requester or accepted invitee, with an action to regenerate invite links.
 - `/requests/new` — authenticated request creation wizard-style form with title, multiple invitee emails, friend selections, three quick preset buttons plus ordered preset dropdown, duration, date range, weekday chips, time window, SQLite save action, prominent live matching button, top-three option cards, and secondary availability preview.
 - `/invite/{token}` — public secure invite preview that resolves non-sensitive request details from a hashed expiring token and lets the matching logged-in invitee accept or decline.
-- `/requests/demo` — public demo request that runs the matching engine against two separate demo calendar busy registries.
+- `/requests/demo` — public demo request with two demo connector cards that runs the matching engine against separate demo calendar busy registries.
 - `/requests/demo-request` — request detail placeholder with participant readiness, option cards, and agreement-state placeholders.
 - `/requests/demo-request/availability` — anonymized availability preview placeholder.
 - `/not-implemented/{feature_slug}` — app-style placeholder page for non-working planned functionality with **Back to home** and **Back to previous page** actions.
@@ -248,7 +248,7 @@ The current frontend implements the first UI milestone from `docs/ui-design-plan
 | `/pair` | GET | Combined free/busy response for both connected accounts owned by the logged-in user. Requires `time_min` and `time_max`. |
 | `/matching/options` | POST | Returns up to three non-overlapping options for both connected calendars owned by the logged-in user using `time_min`, `time_max`, `duration_minutes`, and optional weekday/time windows. |
 | `/api/demo/options` | POST | Runs the same matching engine against two submitted demo busy registries without using personal calendar connections. |
-| `/api/profile` | GET/PUT | Returns or updates display name, phone number, timezone preference, linked calendar preference, and ordered time presets. |
+| `/api/profile` | GET/PUT | Returns or updates display name, phone number, timezone preference, selected linked calendar labels, and ordered time presets. |
 | `/api/time-presets` | GET | Returns the current user's ordered time presets. |
 | `/api/friends` | GET/POST | Lists friend requests or sends a new email-address friend request. |
 | `/api/friends/{id}/accept` | POST | Accepts a pending friend request addressed to the current user. |
@@ -315,7 +315,7 @@ For the first hosted deployment, follow `cloud_hosting/fly_io.md` and add the Fl
 
 ## Database schema
 
-The prototype creates a local SQLite database by default. Authentication data lives in `users` and `user_sessions`; session tokens are stored only as SHA-256 hashes and passwords are stored as PBKDF2 hashes. OAuth callbacks are protected with short-lived one-time `oauth_states`. Meeting requests live in `meeting_requests` with title, invitee email, duration, date range, time window, selected weekdays, notes, status, hashed invite token, invite expiration/open/accept/decline timestamps, invitee user linkage, and timestamps. Lifecycle events live in `request_audit_events`. The `google_accounts` table contains:
+The prototype creates a local SQLite database by default. Authentication and profile data lives in `users` and `user_sessions`; session tokens are stored only as SHA-256 hashes, passwords are stored as PBKDF2 hashes, and selected profile calendar labels are stored in `linked_calendar_labels` for later request flows. OAuth callbacks are protected with short-lived one-time `oauth_states`. Meeting requests live in `meeting_requests` with title, invitee email, duration, date range, time window, selected weekdays, notes, status, hashed invite token, invite expiration/open/accept/decline timestamps, invitee user linkage, and timestamps. Lifecycle events live in `request_audit_events`. The `google_accounts` table contains:
 
 | Column | Purpose |
 | --- | --- |

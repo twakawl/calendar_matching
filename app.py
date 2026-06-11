@@ -151,6 +151,7 @@ class User(Base):
     timezone_preference = Column(String, nullable=False, default="UTC")
     time_presets = Column(String, nullable=True)
     linked_calendar_label = Column(String, nullable=True)
+    linked_calendar_labels = Column(String, nullable=True)
     password_hash = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -273,6 +274,7 @@ def _run_lightweight_migrations() -> None:
                 "timezone_preference": "VARCHAR DEFAULT 'UTC'",
                 "time_presets": "VARCHAR",
                 "linked_calendar_label": "VARCHAR",
+                "linked_calendar_labels": "VARCHAR",
             }
             for column_name, column_type in user_additive_columns.items():
                 if column_name not in user_columns:
@@ -734,6 +736,7 @@ class UserResponse(BaseModel):
     phone_number: Optional[str] = None
     timezone_preference: str = "UTC"
     linked_calendar_label: Optional[str] = None
+    linked_calendar_labels: list[str] = Field(default_factory=list)
     time_presets: list[TimePreset] = Field(default_factory=list)
     created_at: datetime
 
@@ -743,6 +746,7 @@ class ProfileUpdate(BaseModel):
     phone_number: Optional[str] = None
     timezone_preference: str = "UTC"
     linked_calendar_label: Optional[str] = None
+    linked_calendar_labels: list[str] = Field(default_factory=list)
     time_presets: list[TimePreset] = Field(default_factory=list)
 
 
@@ -1044,15 +1048,29 @@ def _presets_for_user(user: User) -> list[TimePreset]:
     return DEFAULT_TIME_PRESETS
 
 
+def _linked_calendar_labels_for_user(user: User) -> list[str]:
+    """Return the profile's selected calendar labels, preserving legacy single-label data."""
+    if getattr(user, "linked_calendar_labels", None):
+        try:
+            labels = json.loads(user.linked_calendar_labels)
+            if isinstance(labels, list):
+                return [str(label) for label in labels if str(label).strip()]
+        except Exception:
+            pass
+    return [user.linked_calendar_label] if user.linked_calendar_label else []
+
+
 def _user_response(user: User) -> UserResponse:
     """Serialize a user without credentials."""
+    linked_labels = _linked_calendar_labels_for_user(user)
     return UserResponse(
         id=user.id,
         email=user.email,
         display_name=user.display_name,
         phone_number=user.phone_number,
         timezone_preference=user.timezone_preference or "UTC",
-        linked_calendar_label=user.linked_calendar_label,
+        linked_calendar_label=user.linked_calendar_label or (linked_labels[0] if linked_labels else None),
+        linked_calendar_labels=linked_labels,
         time_presets=_presets_for_user(user),
         created_at=user.created_at,
     )
@@ -1160,7 +1178,11 @@ async def update_profile(payload: ProfileUpdate, current_user: User = Depends(re
         user.display_name = payload.display_name.strip() if payload.display_name else None
         user.phone_number = payload.phone_number.strip() if payload.phone_number else None
         user.timezone_preference = payload.timezone_preference.strip() or "UTC"
-        user.linked_calendar_label = payload.linked_calendar_label
+        linked_labels = [label.strip() for label in payload.linked_calendar_labels if label.strip()]
+        if not linked_labels and payload.linked_calendar_label:
+            linked_labels = [payload.linked_calendar_label.strip()]
+        user.linked_calendar_label = linked_labels[0] if linked_labels else None
+        user.linked_calendar_labels = json.dumps(linked_labels)
         user.time_presets = json.dumps([preset.model_dump() for preset in payload.time_presets])
         db.add(user)
         db.commit()
