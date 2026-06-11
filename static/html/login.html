@@ -43,20 +43,21 @@
                             <span class="badge rounded-pill text-bg-primary-subtle text-primary">Implemented</span>
                         </div>
 
+                        <div id="registrationPrompt" class="registration-warning alert alert-warning d-none" role="alert" aria-live="polite"></div>
                         <div class="row g-3">
                             <div class="col-12"><label class="form-label" for="authEmail">Email</label><input id="authEmail" type="email" class="form-control form-control-lg" autocomplete="email" placeholder="you@example.com"></div>
                             <div class="col-12"><label class="form-label" for="authPassword">Password</label><input id="authPassword" type="password" class="form-control form-control-lg" autocomplete="current-password" placeholder="At least 8 characters"></div>
                         </div>
                         <div id="loginStatus" class="small mt-3" aria-live="polite"></div>
-                        <div class="d-flex flex-column flex-sm-row gap-2 mt-4">
-                            <button id="loginBtn" class="btn btn-primary btn-lg flex-fill primary-action" type="button">Log in with email</button>
-                            <a id="registerBtn" class="btn btn-outline-primary btn-lg flex-fill" href="/register">Create account</a>
+                        <div class="mt-4">
+                            <button id="loginBtn" class="btn btn-primary btn-lg w-100 primary-action" type="button">Log in with email</button>
+                            <p class="auth-switch-text text-center small text-secondary mt-3 mb-0">No account yet? <a id="registerBtn" href="/register">Register</a></p>
                         </div>
 
                         <div class="provider-divider my-4"><span>or continue with</span></div>
                         <div class="row g-2">
-                            <div class="col-md-6"><a class="btn btn-provider w-100" data-provider-login="Google" href="/auth/oauth/google">Continue with Google</a></div>
-                            <div class="col-md-6"><a class="btn btn-provider w-100" data-provider-login="Microsoft" href="/auth/oauth/microsoft">Continue with Microsoft</a></div>
+                            <div class="col-md-6"><a class="btn btn-provider w-100" data-provider-login="Google" href="/not-implemented/google-login">Continue with Google</a></div>
+                            <div class="col-md-6"><a class="btn btn-provider w-100" data-provider-login="Microsoft" href="/not-implemented/microsoft-login">Continue with Microsoft</a></div>
                         </div>
                         <p class="small text-secondary mt-3 mb-0">Provider app-login buttons are ready in the UI; this prototype still uses email login while provider sign-in is configured.</p>
                     </div>
