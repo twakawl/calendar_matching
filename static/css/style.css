@@ -11,10 +11,45 @@
     --cm-own: #0ea5e9;
 }
 
+
+html,
+body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
 body {
     background: var(--cm-muted-bg);
     color: var(--cm-text);
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+img,
+svg,
+video,
+canvas {
+    max-width: 100%;
+}
+
+.container,
+.container-fluid,
+.row,
+[class*="col-"],
+.card,
+.navbar,
+.navbar .container,
+.navbar-collapse,
+.navbar-nav,
+.dropdown-menu {
+    min-width: 0;
+}
+
+main,
+section,
+.card,
+.card-body {
+    overflow-wrap: break-word;
 }
 
 .btn-primary {
@@ -185,9 +220,12 @@ body {
 }
 
 .calendar-scroll {
+    max-width: 100%;
     overflow-x: auto;
     border: 1px solid var(--cm-border);
     border-radius: 1rem;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
 }
 
 #calendarGrid {
@@ -306,24 +344,110 @@ body {
 
 @media (max-width: 767.98px) {
     .display-5 {
-        font-size: 2.25rem;
+        font-size: clamp(2rem, 12vw, 2.25rem);
+    }
+
+    .container {
+        --bs-gutter-x: 1.25rem;
+    }
+
+    .card-body,
+    .feature-card,
+    .participant-card,
+    .empty-state {
+        padding: 1.25rem;
     }
 
     .time-row {
-        grid-template-columns: 3.5rem 1fr;
+        grid-template-columns: minmax(3rem, 3.5rem) minmax(0, 1fr);
+    }
+
+    .free-block,
+    .busy-block {
+        min-width: 0;
+        padding-inline: 0.75rem;
     }
 
     .suggested-grid {
         grid-template-columns: 1fr;
     }
 
-    #calendarNav {
+    #timePresetQuickButtons,
+    #calendarNav,
+    #calendarContainer .d-flex.gap-2,
+    #accountSelectors .d-flex.gap-2 {
+        display: flex;
+        flex-direction: column;
         width: 100%;
     }
 
-    #calendarNav .btn {
+    #calendarNav .btn,
+    #timePresetQuickButtons .btn {
         flex: 1 1 auto;
+        width: 100%;
     }
+}
+
+@media (max-width: 991.98px) {
+    .navbar-collapse {
+        width: 100%;
+    }
+
+    .navbar-nav {
+        align-items: stretch;
+        gap: 0.25rem;
+        padding-top: 0.75rem;
+    }
+
+    .navbar-nav .btn,
+    .navbar-nav .dropdown-toggle {
+        width: 100%;
+        text-align: left;
+    }
+
+    .navbar-nav .dropdown-menu {
+        position: static;
+        width: 100%;
+        margin-top: 0.5rem;
+        box-shadow: none !important;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .navbar > .container {
+        flex-wrap: wrap;
+    }
+
+    .navbar > .container > .ms-auto.d-flex {
+        flex: 1 1 100%;
+        justify-content: stretch;
+    }
+
+    .navbar > .container > .ms-auto.d-flex .btn {
+        flex: 1 1 0;
+    }
+}
+
+
+.navbar .container {
+    gap: 0.75rem;
+}
+
+.navbar-brand {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: normal;
+    line-height: 1.15;
+}
+
+.navbar-toggler {
+    flex: 0 0 auto;
+}
+
+.navbar .btn,
+.navbar .nav-link,
+.dropdown-item {
+    white-space: normal;
 }
 
 .app-navbar {
