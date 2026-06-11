@@ -451,9 +451,11 @@ section,
 }
 
 .app-navbar {
-    background: rgba(255, 255, 255, 0.92);
-    border-bottom: 1px solid rgba(226, 232, 240, 0.9);
-    backdrop-filter: blur(14px);
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+    background: #fff;
+    border-bottom: 1px solid rgba(226, 232, 240, 0.95);
     box-shadow: 0 8px 28px rgba(15, 23, 42, 0.04);
 }
 
@@ -539,6 +541,21 @@ section,
 .preset-card {
     background: #fff;
     box-shadow: 0 12px 26px rgba(15, 23, 42, 0.05);
+}
+
+.linked-calendar-option {
+    display: flex;
+    align-items: flex-start;
+}
+
+.connector-card {
+    border: 1px solid var(--cm-border);
+    border-radius: 1.25rem;
+    box-shadow: 0 12px 26px rgba(15, 23, 42, 0.05);
+}
+
+.preset-weekday-selector .btn {
+    min-width: 3.25rem;
 }
 
 .dropdown-menu.rounded-4 {
