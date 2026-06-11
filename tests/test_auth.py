@@ -65,6 +65,14 @@ class AuthenticationApiTest(unittest.TestCase):
         )
         self.assertEqual(after_logout.status_code, 401)
 
+    def test_login_with_unregistered_email_prompts_registration_flow(self):
+        response = self.client.post(
+            "/auth/login",
+            json={"email": self.email, "password": self.password},
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("register first", response.json()["detail"])
 
     def test_home_is_public_and_app_pages_redirect_when_unauthenticated(self):
         response = self.client.get("/", follow_redirects=False)

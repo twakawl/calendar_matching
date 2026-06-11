@@ -23,18 +23,18 @@ Users must log in before connecting calendars, creating meeting requests, accept
 
 ## Current prototype status
 
-- Implemented application-managed email/password registration and login, split across `/register` and `/login`.
+- Implemented application-managed email/password registration and login, split across `/register` and `/login`. Unknown-email login attempts now show a warning block above the login form with a registration link, and the registration form can reuse the attempted email/password in the same browser session.
 - Passwords are stored as salted PBKDF2 hashes.
 - Login creates a session token that is returned for bearer-token API use and also set as an HTTP-only browser cookie.
 - Logout revokes the current session token.
 - Calendar account listing, Google OAuth start, free/busy reads, paired availability, and matching now require an authenticated app user.
-- Unauthenticated browser users are redirected to `/login`; registration lives separately at `/register`, and display name is not collected on login.
+- Unauthenticated browser users are redirected to `/login`; registration lives separately at `/register`, display name is not collected on login, and registration defaults display name to the email local part before `@`.
 - The authenticated app shell shows primary navigation links plus a clear top-right personal dropdown for Profile, Friends, Account, Demo request, and logout.
 - Connected Google calendar slots are owned by the logged-in user while still exposing prototype slot names `a` and `b` in the UI.
 
 Still deferred:
 
-- Real Google/Microsoft app-login implementation. The current buttons are visible next to email login and route to explicit placeholder endpoints while calendar-link OAuth remains separate.
+- Real Google/Microsoft app-login implementation. The current buttons route to app-style not-implemented pages with home and previous-page navigation while calendar-link OAuth remains separate.
 - Password reset and email verification.
 - CSRF hardening and broader production session controls.
 - Returning invitees to the exact invite/request context after login is still basic and should be hardened.
