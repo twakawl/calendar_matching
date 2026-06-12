@@ -65,7 +65,8 @@ class UiFunctionalityContractTest(unittest.TestCase):
                 self.assertIn(f'id="{element_id}"', request_html)
 
         self.assertIn("weekday-input", request_html)
-        self.assertIn("+ Add another time", request_html)
+        self.assertIn("+ Add another time set", request_html)
+        self.assertIn("Time set 1", request_html)
         self.assertIn("Find best options", request_html)
 
     def test_javascript_references_existing_matching_endpoints(self):
@@ -79,7 +80,8 @@ class UiFunctionalityContractTest(unittest.TestCase):
         self.assertIn('window.location = "/oauth/start?return_to=/requests/new"', app_js)
         self.assertIn('account_label: selectedAccountLabel', app_js)
         self.assertIn('setAvailabilityWindows(preset.windows)', app_js)
-        self.assertIn('allowed_windows: [{ day, start:', app_js)
+        self.assertIn('collectAvailabilityWindows("demoTimeWindowsContainer")', app_js)
+        self.assertIn("profilePresets[index].windows = Array.from(card.querySelectorAll('.preset-window')).flatMap", app_js)
 
     def test_not_implemented_pages_keep_navigation_contract(self):
         """Placeholder feature pages must provide home and previous-page actions."""

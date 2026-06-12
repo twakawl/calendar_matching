@@ -25,7 +25,7 @@ The setup instructions that are needed for the current prototype are included be
 ## Implemented features
 
 - First-party registration, standalone login, logout, HTTP-only session cookies, bearer-token API sessions, an inline register warning for unknown login emails, and app-style placeholder pages for future Google/Microsoft app-login.
-- Dedicated registration page with email/password prefill from an unknown-email login attempt, default display name from the email local part, plus editable personal profile with display name, phone number, timezone preference, multiple linked calendar accounts, provider choices, and ordered multi-block time presets.
+- Dedicated registration page with email/password prefill from an unknown-email login attempt, default display name from the email local part, plus editable personal profile with display name, phone number, timezone preference, multiple linked calendar accounts, provider choices, and ordered multi-set time presets.
 - Friends page with email-based friend requests, recipient-only acceptance, delete controls with confirmation, and contact-import placeholder links for Gmail, Apple, Microsoft, and Android.
 - OAuth 2.0 Web Server Flow for multiple Google Calendar accounts tied to the logged-in user profile; request creation and invite flows can connect Google Calendar and then reuse that saved connection in later requests.
 - Offline access with refresh token storage.
@@ -210,9 +210,9 @@ The current frontend implements the first UI milestone from `docs/ui-design-plan
 - `/friends` — authenticated friend list with email request/accept flow and contact-import placeholder links.
 - `/account` — legacy route that redirects to `/profile`; calendar accounts are managed only from Profile.
 - `/dashboard` — authenticated list of SQLite-backed requests visible to the requester or accepted invitee, with an action to regenerate invite links.
-- `/requests/new` — authenticated request creation wizard-style form with title, multiple invitee emails, friend selections, three quick preset buttons plus ordered preset dropdown, duration, date range, weekday chips, time window, SQLite save action, prominent live matching button, top-three option cards, and secondary availability preview.
+- `/requests/new` — authenticated request creation wizard-style form with title, multiple invitee emails, friend selections, three quick preset buttons plus ordered preset dropdown, duration, date range, multi-day time sets, SQLite save action, prominent live matching button, top-three option cards, and secondary availability preview.
 - `/invite/{token}` — public secure invite preview that resolves non-sensitive request details from a hashed expiring token and lets the matching logged-in invitee accept or decline.
-- `/requests/demo` — authenticated demo request page with two Google Calendar connector cards; it returns from OAuth to the demo page and runs matching against real Google free/busy data.
+- `/requests/demo` — authenticated demo request page with two Google Calendar connector cards; it returns from OAuth to the demo page and runs matching against real Google free/busy data with the same multi-day time-set controls as request creation.
 - `/requests/demo-request` — request detail placeholder with participant readiness, option cards, and agreement-state placeholders.
 - `/requests/demo-request/availability` — anonymized availability preview placeholder.
 - `/not-implemented/{feature_slug}` — app-style placeholder page for non-working planned functionality with **Back to home** and **Back to previous page** actions.

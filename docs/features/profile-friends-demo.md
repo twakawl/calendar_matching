@@ -34,8 +34,8 @@ This slice moves the prototype from a two-slot calendar test toward a user-cente
   - Weekend day: Saturday/Sunday 10:00–18:00.
   - Weekend evening: Friday/Saturday 18:00–00:00.
   - Working hours: weekdays 08:00–18:00.
-- Allow users to add custom presets, reorder presets, and build a preset from multiple time blocks.
-- Show preset order clearly with up/down controls, day/time block editors, add/remove block actions, and human-readable summaries.
+- Allow users to add custom presets, reorder presets, and build a preset from multiple time sets.
+- Show preset order clearly with up/down controls, day checkboxes, one start/end pair per time set, add/remove time-set actions, and human-readable summaries.
 
 ### 3. Meeting request enhancements
 
@@ -74,10 +74,10 @@ This slice moves the prototype from a two-slot calendar test toward a user-cente
 
 - `/login` shows email login plus Google and Microsoft provider-login choices, and it does not collect display name.
 - `/register` is separate and does collect display name.
-- `/profile` can edit display name, phone, timezone, multiple linked calendar selections, and ordered presets with day/time controls.
-- `/requests/new` shows three quick preset buttons, an ordered preset dropdown, multiple invitee-email support, accepted-friend selection, and top-three matching cards.
+- `/profile` can edit display name, phone, timezone, multiple linked calendar selections, and ordered presets with multi-day, single-time time-set controls.
+- `/requests/new` shows three quick preset buttons, an ordered preset dropdown, multi-day time sets, multiple invitee-email support, accepted-friend selection, and top-three matching cards.
 - `/friends` supports email-based friend requests and acceptance, with disabled contact-import placeholders.
-- `/requests/demo` runs matching from two connected Google Calendar agendas and displays the free/busy registries used for matching.
+- `/requests/demo` runs matching from two connected Google Calendar agendas, supports multiple multi-day time sets, and displays the free/busy registries used for matching.
 
 ## Follow-up work
 

@@ -40,6 +40,12 @@ class PrototypeUiRoutesTest(unittest.TestCase):
         self.assertIn("earliestDate", request_page)
         self.assertIn("latestDate", request_page)
         self.assertIn("weekday-input", request_page)
+        self.assertIn("Time set 1", request_page)
+
+        demo_page = (html_dir / "demo_request.html").read_text()
+        self.assertIn('id="demoTimeWindowsContainer"', demo_page)
+        self.assertIn('id="demoAddTimeWindowBtn"', demo_page)
+        self.assertIn("Each time set can include several days", demo_page)
 
         stylesheet = (REPO_ROOT / "static" / "css" / "style.css").read_text()
         self.assertIn("overflow-x: hidden", stylesheet)
