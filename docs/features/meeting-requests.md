@@ -64,7 +64,7 @@ A logged-in user can create a meeting request and invite another user through a 
 
 - The FastAPI prototype now persists requester-owned request records in local SQLite through `/api/requests`.
 - New requests generate hard-to-guess invite tokens, store only token hashes plus expirations, and return the raw invite URL only at creation/regeneration time.
-- The authenticated `/requests/new` page can save a request with title, multiple invitee emails, accepted friend selections, duration, date range, selected profile calendar account, selected weekdays, one or more grouped time-window sets, timezone, ordered time-preset choice, and notes.
+- The authenticated `/requests/new` page can save a request with title, multiple invitee emails, accepted friend selections, duration, date range, selected profile calendar account, one or more grouped time sets with multiple days and exactly one start/end time per set, timezone, ordered time-preset choice, and notes.
 - The authenticated `/dashboard` page loads requests visible to the requester or invitee, shows accept only to the invited recipient, can regenerate invite links for senders, and lets visible users delete a request after confirmation.
 - The public `/invite/{token}` page resolves only non-sensitive request details, then lets the matching logged-in invitee accept or decline and choose an existing linked calendar or start Google OAuth for the same request; newly connected Google calendars are stored on the profile and can be reused.
 - Request access checks now allow only the requester, invitee email, or accepted invitee user to fetch request details after authentication.
@@ -74,9 +74,9 @@ A logged-in user can create a meeting request and invite another user through a 
 ## Current UX additions for request creation
 
 - The request creation page uses a step-based card so basics, participants, dates, and rules are easier to scan.
-- The three highest-priority time presets are exposed as quick buttons, while every ordered profile preset remains available in a dropdown; presets with different timings are grouped into separate day/time sets.
+- The three highest-priority time presets are exposed as quick buttons, while every ordered profile preset remains available in a dropdown; presets are grouped into time sets where one start/end time can apply to multiple selected days.
 - The primary action is visually emphasized as **Find best options**; saving the request remains available as a secondary action.
 - Multiple typed invitee emails and accepted friend selections are combined into the request payload.
 - Top-three option cards appear before the detailed availability grid so users first see the product's main recommendation.
 
-- **Add another time** is active on request creation and demo matching, allowing combinations such as Monday–Friday 10:00–12:00 plus Wednesday–Thursday 10:00–15:00.
+- **Add another time set** is active on request creation and demo matching, allowing combinations such as Monday–Friday 10:00–12:00 plus Wednesday–Thursday 10:00–15:00.
