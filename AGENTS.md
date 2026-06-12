@@ -15,7 +15,7 @@ The repository currently contains planning documentation plus a runnable FastAPI
 - `.env.example` — local environment template for Google OAuth credentials, Fernet encryption key, and optional database URL.
 - `app.py` — single-file FastAPI prototype with Google OAuth flow, encrypted token storage, SQLite persistence, Google Calendar free/busy reads, and account/free-busy endpoints.
 - `pyproject.toml` — Python metadata and dependencies for the prototype.
-- `static/` — simple HTML/CSS/JavaScript frontend for authenticating two accounts and finding shared free slots.
+- `static/` — simple HTML/CSS/JavaScript frontend for profile-owned calendar connections, request creation, and shared free-slot matching.
 - `tests/test_verify_setup.py` — setup verification script for environment variables, dependencies, and database readiness.
 - `DEBUGGING_GUIDE.md` — manual debugging notes for OAuth, free/busy calls, and frontend behavior.
 - `planning.md` — current development plan, repository assessment, feature priority, recommended milestones, and implementation guardrails. Check this file before starting feature work to understand the next recommended task and current product state.
@@ -44,7 +44,7 @@ Build toward these major capabilities:
 - If adding Python code, prefer a clear project structure and include dependency, formatting, linting, migration, and test configuration files.
 - Keep business logic independent from concrete persistence implementations so SQLite and Azure SQL support remain practical.
 - Keep calendar-provider logic behind interfaces so Google and Microsoft providers can share app workflows.
-- Update `README.md` and relevant feature docs when adding runnable functionality or changing product behavior.
+- Always update `README.md`, relevant feature docs, and any other affected `.md` documentation on every update, even for small UI or behavior changes.
 
 ## Testing
 

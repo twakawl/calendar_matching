@@ -84,3 +84,10 @@ This slice moves the prototype from a two-slot calendar test toward a user-cente
 - Normalize multi-person meeting participants into a dedicated table instead of JSON columns.
 - Send friend/request invitations by email.
 - Add full calendar-readiness checks for every participant before matching.
+
+
+## Latest calendar account UX update
+
+- Calendar account management now lives only on the Profile page and is removed from the top navigation and personal dropdown menus.
+- New profiles start with no connected calendar accounts. Profile offers **Connect new calendar account** with Google enabled, Microsoft and Apple marked as not connected, and a request-new-platform form.
+- Request creation now asks the requester to select one connected profile calendar account instead of choosing requester/invitee A and B slots.

@@ -108,20 +108,20 @@ Stack vertically:
 
 ***
 
-## 2. Login / account page
+## 2. Login / profile calendar accounts
 
 ### Route suggestion
 
-`/login` and `/account`
+`/login` and `/profile` (`/account` redirects to `/profile`)
 
 ### Goal
 
-Let users authenticate and manage connected calendars.
+Let users authenticate and manage connected calendar accounts from Profile.
 
 ### Primary content
 
 * Login form or OAuth login options.
-* Connected calendar provider card:
+* Profile calendar provider section with Google enabled, Microsoft/Apple marked not connected, and a request-new-platform form:
 
   * Google Calendar status.
   * Future Microsoft Calendar placeholder.
@@ -577,7 +577,7 @@ For authenticated users:
 
 * Dashboard.
 * New request.
-* Calendar connections/account.
+* Profile calendar accounts.
 * Help/privacy.
 
 For invite users:
@@ -838,7 +838,7 @@ Each error should include:
 
 ## Replace prototype table-heavy UI
 
-The current prototype uses a single page with account selectors, weekday table, calendar grid, and raw overview. Future UI should split this into product pages and reusable components.
+The current prototype now uses Profile-owned calendar accounts plus request-level calendar selection, but still has a dense request form, calendar grid, and raw overview. Future UI should split this further into product pages and reusable components.
 
 Focus first on:
 
@@ -883,7 +883,7 @@ The backend should provide UI-friendly endpoints that avoid leaking provider-spe
 
 Recommended API capabilities:
 
-* Get current user/account state.
+* Get current user/profile calendar account state.
 * Get calendar connection state.
 * Create/update meeting request draft.
 * Finalize/send meeting request.
@@ -912,7 +912,7 @@ Backend responses should include:
 For the next practical UI iteration, build a polished version of the existing prototype around the future product shape:
 
 1. Keep Google Calendar connection.
-2. Replace “Authenticate user A/B” with account/calendar connection cards.
+2. Keep account/calendar connection cards only in Profile and avoid A/B slot language.
 3. Add a request creation card with:
 
    * Duration.

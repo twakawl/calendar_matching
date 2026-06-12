@@ -1,6 +1,6 @@
 # Calendar Matching
 
-Calendar Matching is an early-stage FastAPI prototype for comparing two Google Calendars. It now includes first-party app registration/login, lets logged-in users connect two Google Calendar slots with OAuth 2.0, stores encrypted refresh tokens and meeting request drafts in SQLite, reads only Google Calendar free/busy data, and shows overlapping availability in a simple browser UI.
+Calendar Matching is an early-stage FastAPI prototype for comparing calendar availability. It now includes first-party app registration/login, lets logged-in users connect multiple Google Calendar accounts from Profile with OAuth 2.0, stores encrypted refresh tokens and meeting request drafts in SQLite, reads only Google Calendar free/busy data, and lets request creators select one connected profile calendar for a request.
 
 The longer-term product direction is documented separately: authenticated users should eventually send meeting requests and receive the best meeting options based on both users' availability and request preferences.
 
@@ -9,7 +9,7 @@ The longer-term product direction is documented separately: authenticated users 
 This repository currently contains both planning documentation and a runnable prototype:
 
 - `app.py` — single-file FastAPI backend, first-party auth/session handling, OAuth callback handling, SQLite persistence, encrypted token storage, meeting request and invite storage, Google Calendar free/busy calls, and API endpoints.
-- `static/html/home.html`, `static/html/login.html`, `static/css/style.css`, `static/js/app.js`, and `static/js/login.js` — lightweight frontend with a standalone login page, authenticated app shell, calendar-slot authentication, availability preferences, and suggested free slots.
+- `static/html/home.html`, `static/html/login.html`, `static/css/style.css`, `static/js/app.js`, and `static/js/login.js` — lightweight frontend with a standalone login page, authenticated app shell, profile-owned calendar connections, availability preferences, request calendar selection, and suggested free slots.
 - `pyproject.toml` — Python package metadata and dependency list for `uv`.
 - `Dockerfile`, `fly.toml`, `requirements.txt`, and `.python-version` — Fly.io deployment settings for the hosted FastAPI service.
 - `.github/workflows/ci.yml` and `.github/workflows/deploy-fly.yml` — GitHub Actions CI and optional Fly.io CD workflows.
@@ -25,15 +25,15 @@ The setup instructions that are needed for the current prototype are included be
 ## Implemented features
 
 - First-party registration, standalone login, logout, HTTP-only session cookies, bearer-token API sessions, an inline register warning for unknown login emails, and app-style placeholder pages for future Google/Microsoft app-login.
-- Dedicated registration page with email/password prefill from an unknown-email login attempt, default display name from the email local part, plus editable personal profile with display name, phone number, timezone preference, linked calendar preference, and ordered time presets.
+- Dedicated registration page with email/password prefill from an unknown-email login attempt, default display name from the email local part, plus editable personal profile with display name, phone number, timezone preference, multiple linked calendar accounts, provider choices, and ordered time presets.
 - Friends page with email-based friend requests, acceptance, and contact-import placeholder links for Gmail, Apple, Microsoft, and Android.
-- OAuth 2.0 Web Server Flow for Google Calendar tied to the logged-in user.
+- OAuth 2.0 Web Server Flow for multiple Google Calendar accounts tied to the logged-in user profile; Microsoft and Apple appear as not-connected provider placeholders, and users can submit a new-platform request from Profile.
 - Offline access with refresh token storage.
 - Fernet encryption for stored refresh tokens.
 - SQLite-backed `users`, `user_sessions`, `oauth_states`, user-owned `google_accounts`, `meeting_requests`, and `request_audit_events` records.
 - Disposable local SQLite seed users are provisioned on startup when missing: `twan.houwers92@gmail.com` and `twan@dutchwebshark.com`, both with password `Test123!`.
 - Google Calendar free/busy reads for primary calendars only; event titles, descriptions, attendees, and locations are not fetched.
-- Combined busy-block response for two connected accounts.
+- Combined busy-block response for a selected profile calendar account plus another connected participant calendar in the current prototype.
 - MVP matching endpoint that returns the top three non-overlapping meeting options from duration, weekday, one-or-more allowed time-window sets, and busy-block constraints.
 - Bootstrap-based multi-page frontend with a public informational home page, polished login/register screens, a clear top navigation bar with personal dropdown menu, authenticated dashboard, account/calendar connection cards, profile and friends pages, SQLite-backed multi-invitee request creation/listing, secure invite preview with accept/decline actions, request-detail placeholders, responsive availability preview, a public demo request, and live top-three matching cards backed by the existing Google free/busy prototype.
 - Automatic access-token refresh before Calendar API calls.
@@ -187,19 +187,16 @@ http://127.0.0.1:8000/redoc
 ## Basic usage
 
 1. Open `http://127.0.0.1:8000`; unauthenticated users see the public information home page with a top-right **Log in** button.
-2. Register or log in with an app account, then use the authenticated dashboard and account pages.
-3. Create a request from `/requests/new`; it is persisted in local SQLite, generates a hashed expiring invite token, and appears on `/dashboard`.
-4. From `/account`, connect **Google Calendar · Slot A** and **Google Calendar · Slot B** with OAuth.
-5. On `/requests/new`, select a meeting duration and weekday/hour availability preferences.
-6. Click **Find best options** to fetch both calendars' busy blocks and show the top three matching slots.
-7. Optionally open `/requests/demo` after logging in to connect/reconnect the same Google Calendar slots from the demo page and run a one-day Google free/busy matching check.
+2. Register or log in with an app account, then use the authenticated dashboard and Profile page.
+3. From `/profile`, start with no connected calendar accounts and choose **Connect new calendar account → Google** when you want to connect one; Microsoft and Apple are shown as not-connected placeholders, and **Request a new platform** opens a short request form.
+4. Create a request from `/requests/new`; it is persisted in local SQLite, generates a hashed expiring invite token, and appears on `/dashboard`.
+5. On `/requests/new`, select one connected calendar account from your profile, then select a meeting duration and one or more weekday/time availability sets, for example Monday–Friday 10:00–12:00 plus Wednesday–Thursday 10:00–15:00.
+6. Click **Find best options** to fetch busy blocks for the selected profile calendar and the prototype comparison calendar, then show the top three matching slots.
 
-Direct OAuth start URLs are also available after logging in:
+A direct OAuth start URL is also available after logging in. When no `account_label` is supplied, the backend generates a unique profile calendar label:
 
 ```text
-http://127.0.0.1:8000/oauth/start?account_label=a
-http://127.0.0.1:8000/oauth/start?account_label=b
-http://127.0.0.1:8000/oauth/start?account_label=a&return_to=/requests/demo
+http://127.0.0.1:8000/oauth/start
 ```
 
 ## Prototype UI routes
@@ -209,9 +206,9 @@ The current frontend implements the first UI milestone from `docs/ui-design-plan
 - `/` — public landing page with privacy-first product explanation and a top-right login button.
 - `/login` — first-party email login page with prominent email login, a text register link below the login button, an inline warning/register handoff for unknown accounts, secondary Google/Microsoft app-login placeholder links, and privacy guidance.
 - `/register` — first-party registration page with display name collection, default display name from the email text before `@`, email/password prefill after an unknown-account login, and an "I already have an account" text link below the submit button.
-- `/profile` — authenticated personal profile with display name, phone number, timezone preference, linked calendar preference, ordered time presets, and a personal dropdown menu shared with friends/account routes.
+- `/profile` — authenticated personal profile with display name, phone number, timezone preference, multiple connected calendar accounts, Google/Microsoft/Apple provider choices, a request-new-platform form, ordered time presets, and the personal dropdown menu.
 - `/friends` — authenticated friend list with email request/accept flow and contact-import placeholder links.
-- `/account` — authenticated Google Calendar connection cards for prototype slots A and B, plus a Microsoft Calendar placeholder that opens a not-implemented app page.
+- `/account` — legacy route that redirects to `/profile`; calendar accounts are managed only from Profile.
 - `/dashboard` — authenticated list of SQLite-backed requests visible to the requester or accepted invitee, with an action to regenerate invite links.
 - `/requests/new` — authenticated request creation wizard-style form with title, multiple invitee emails, friend selections, three quick preset buttons plus ordered preset dropdown, duration, date range, weekday chips, time window, SQLite save action, prominent live matching button, top-three option cards, and secondary availability preview.
 - `/invite/{token}` — public secure invite preview that resolves non-sensitive request details from a hashed expiring token and lets the matching logged-in invitee accept or decline.
@@ -245,7 +242,7 @@ The current frontend implements the first UI milestone from `docs/ui-design-plan
 | `/api/invites/{token}` | GET | Preview non-sensitive details for an unexpired invite token. |
 | `/api/invites/{token}/accept` | POST | Accept an invite as the logged-in invitee. |
 | `/api/invites/{token}/decline` | POST | Decline an invite as the logged-in invitee. |
-| `/oauth/start?account_label=a` | GET | Start Google OAuth for user-owned account slot `a` or `b`; accepts optional `return_to` for safe relative callback redirects such as `/requests/demo` and optional `request_id` so invitee calendar connections can update the visible meeting request; requires login. |
+| `/oauth/start` | GET | Start Google OAuth for a profile-owned calendar account; an optional `account_label` can be supplied, otherwise the backend generates one. Requires login. |
 | `/oauth/callback` | GET | OAuth callback used by Google. |
 | `/freebusy/{account_label}` | GET | Free/busy response for one connected account owned by the logged-in user. Requires `time_min` and `time_max`. |
 | `/pair` | GET | Combined free/busy response for both connected accounts owned by the logged-in user. Requires `time_min` and `time_max`. |
@@ -256,7 +253,7 @@ The current frontend implements the first UI milestone from `docs/ui-design-plan
 | `/api/friends` | GET/POST | Lists friend requests or sends a new email-address friend request. |
 | `/api/friends/{id}/accept` | POST | Accepts a pending friend request addressed to the current user. |
 | `/accounts` | GET | Logged-in user's stored account metadata, without tokens. |
-| `/accounts/select` | POST | Prototype endpoint for marking an account selected in the UI. |
+| `/accounts/select` | POST | Legacy prototype endpoint for validating a selected stored account label. |
 
 Example login request:
 
@@ -322,8 +319,8 @@ The prototype creates a local SQLite database by default. Authentication and pro
 
 | Column | Purpose |
 | --- | --- |
-| `account_label` | Primary key using an internal user-owned slot key. |
-| `owner_user_id` | App user that owns the connected calendar slot. |
+| `account_label` | Primary key using an internal user-owned profile calendar key. |
+| `owner_user_id` | App user that owns the connected calendar account. |
 | `google_sub` | Unique Google account identifier. |
 | `email` | Connected Google account email address. |
 | `refresh_token` | Encrypted refresh token. |

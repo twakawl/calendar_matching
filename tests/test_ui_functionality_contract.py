@@ -9,19 +9,21 @@ HTML_DIR = REPO_ROOT / "static" / "html"
 
 
 class UiFunctionalityContractTest(unittest.TestCase):
-    def test_account_page_keeps_oauth_button_ids_used_by_javascript(self):
-        """Calendar connection buttons must keep the IDs wired in app.js."""
+    def test_profile_page_keeps_calendar_connection_contract(self):
+        """Calendar account management lives on Profile instead of A/B account slots."""
+        profile_html = (HTML_DIR / "profile.html").read_text()
         account_html = (HTML_DIR / "account.html").read_text()
 
-        self.assertIn('id="authA"', account_html)
-        self.assertIn('id="authB"', account_html)
-        self.assertIn('id="statusA"', account_html)
-        self.assertIn('id="statusB"', account_html)
-        self.assertIn('id="emailA"', account_html)
-        self.assertIn('id="emailB"', account_html)
+        self.assertIn('id="profileLinkedCalendarList"', profile_html)
+        self.assertIn('id="profileConnectGoogle"', profile_html)
+        self.assertIn('id="platformRequestForm"', profile_html)
+        self.assertIn('Microsoft · not connected', profile_html)
+        self.assertIn('Apple · not connected', profile_html)
+        self.assertNotIn('id="authA"', account_html)
+        self.assertNotIn('id="authB"', account_html)
 
     def test_login_page_keeps_first_party_auth_form_contract(self):
-        """The login page should start with app authentication, not calendar slots."""
+        """The login page should start with app authentication, not calendar connection controls."""
         login_html = (HTML_DIR / "login.html").read_text()
 
         self.assertIn('id="authEmail"', login_html)
@@ -51,8 +53,7 @@ class UiFunctionalityContractTest(unittest.TestCase):
             "findBtn",
             "saveRequestBtn",
             "requestSaveStatus",
-            "selectA",
-            "selectB",
+            "requestAccountSelect",
             "optionCards",
             "calendarContainer",
             "calendarGrid",
@@ -71,15 +72,13 @@ class UiFunctionalityContractTest(unittest.TestCase):
         """The new templates should still call the existing pair and matching APIs."""
         app_js = (REPO_ROOT / "static" / "js" / "app.js").read_text()
 
-        self.assertIn('fetch(`/pair?time_min=${encodeURIComponent(timeMin)}', app_js)
+        self.assertIn('const pairUrl = `/pair?time_min=${encodeURIComponent(timeMin)}', app_js)
+        self.assertIn('fetch(pairUrl)', app_js)
         self.assertIn('fetch("/matching/options"', app_js)
-        self.assertIn("fetch('/matching/options'", app_js)
-        self.assertIn('window.location = "/oauth/start?account_label=a"', app_js)
-        self.assertIn('window.location = "/oauth/start?account_label=b"', app_js)
-        self.assertIn("/oauth/start?account_label=a&return_to=/requests/demo", app_js)
-        self.assertIn("/oauth/start?account_label=b&return_to=/requests/demo", app_js)
-        self.assertIn('fetch(`/freebusy/a?time_min=${encodeURIComponent(timeMin)}', app_js)
-        self.assertIn('fetch(`/freebusy/b?time_min=${encodeURIComponent(timeMin)}', app_js)
+        self.assertIn('window.location = "/oauth/start"', app_js)
+        self.assertIn('account_label: selectedAccountLabel', app_js)
+        self.assertIn('setAvailabilityWindows(preset.windows)', app_js)
+        self.assertIn("collectAvailabilityWindows('demoTimeWindowsContainer')", app_js)
 
     def test_not_implemented_pages_keep_navigation_contract(self):
         """Placeholder feature pages must provide home and previous-page actions."""
@@ -94,14 +93,14 @@ class UiFunctionalityContractTest(unittest.TestCase):
         friends_html = (HTML_DIR / "friends.html").read_text()
         self.assertIn('/not-implemented/google-login', login_html)
         self.assertIn('/not-implemented/microsoft-login', login_html)
-        self.assertIn('/not-implemented/microsoft-calendar', account_html)
+        self.assertIn('url=/profile', account_html)
         self.assertIn('/not-implemented/google-contact-import', friends_html)
         self.assertIn('/not-implemented/apple-contact-import', friends_html)
         self.assertIn('/not-implemented/microsoft-contact-import', friends_html)
         self.assertIn('/not-implemented/android-contact-import', friends_html)
 
-    def test_oauth_callback_returns_to_starting_page_for_new_templates(self):
-        """After OAuth, users should return to the app page that started the flow."""
+    def test_oauth_callback_returns_to_profile_page_for_new_templates(self):
+        """After OAuth, users should return to Profile where calendar accounts are managed."""
         app_py = (REPO_ROOT / "app.py").read_text()
 
         self.assertIn('return_path = Column(String, nullable=False, default="/account")', app_py)
