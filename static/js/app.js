@@ -10,18 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let showCalendarB = true;
     let accountsLoaded = 0;
     let currentUser = null;
-    const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const demoPresets = {
-        workweek: { name: "Mon–Friday 10–12", windows: [0, 1, 2, 3, 4].map((day) => ({ day, start: "10:00", end: "12:00" })) },
-        overlap: { name: "Mon–Friday 10–12 plus Wed–Thu 10–15", windows: [
-            ...[0, 1, 2, 3, 4].map((day) => ({ day, start: "10:00", end: "12:00" })),
-            ...[2, 3].map((day) => ({ day, start: "10:00", end: "15:00" })),
-        ] },
-        split: { name: "Mon/Wed morning and Tue/Thu afternoon", windows: [
-            { day: 0, start: "09:00", end: "12:00" }, { day: 2, start: "09:00", end: "12:00" },
-            { day: 1, start: "13:00", end: "16:00" }, { day: 3, start: "13:00", end: "16:00" },
-        ] },
-    };
+    let currentInviteRequestId = null;
     const requiresAuth = document.body.dataset.requiresAuth === "true";
 
     function $(id) {
@@ -686,41 +675,76 @@ document.addEventListener("DOMContentLoaded", () => {
         setAvailabilityWindows(preset.windows);
     }
 
-    function setDemoConnector(label, connected) {
+    async function setDemoConnector(label, account) {
         const status = $(`demoConnectorStatus${label}`);
         const button = $(`demoConnect${label}`);
+        const connected = Boolean(account);
         if (status) {
-            status.textContent = connected ? 'Connected' : 'Not connected';
+            status.textContent = connected ? 'Google connected' : 'Not connected';
             status.className = connected ? 'badge text-bg-success align-self-start' : 'badge text-bg-secondary align-self-start';
         }
-        if (button) button.textContent = connected ? `Demo calendar ${label} connected` : `Connect demo calendar ${label}`;
-        try { localStorage.setItem(`demoCalendar${label}Connected`, connected ? 'true' : 'false'); } catch { }
+        if (button) button.textContent = connected ? `Reconnect Google calendar ${label}` : `Connect Google calendar ${label}`;
+        const busyEl = $(`demoBusy${label}`);
+        if (busyEl && !connected) {
+            busyEl.textContent = 'Connect this Google calendar to load its free/busy registry.';
+        }
+        if (busyEl && connected) {
+            busyEl.textContent = JSON.stringify({ connector: `Google Calendar ${label}`, email: account.email, busy: [] }, null, 2);
+        }
     }
 
-    function loadDemoConnectors() {
-        ['A', 'B'].forEach((label) => {
-            let connected = false;
-            try { connected = localStorage.getItem(`demoCalendar${label}Connected`) === 'true'; } catch { }
-            setDemoConnector(label, connected);
-        });
+    async function loadDemoConnectors() {
+        const results = $('demoResults');
+        try {
+            const user = await loadCurrentUser();
+            if (!user) return { a: null, b: null };
+            const res = await fetch('/accounts');
+            if (!res.ok) throw new Error('Could not load connected Google calendars');
+            const accounts = await res.json();
+            const byLabel = Object.fromEntries((accounts || []).map((account) => [String(account.account_label || '').toLowerCase(), account]));
+            await setDemoConnector('A', byLabel.a);
+            await setDemoConnector('B', byLabel.b);
+            return { a: byLabel.a || null, b: byLabel.b || null };
+        } catch (error) {
+            await setDemoConnector('A', null);
+            await setDemoConnector('B', null);
+            if (results) results.innerHTML = `<div class="alert alert-warning">${escapeHtml(error.message || 'Could not load demo calendar connections.')}</div>`;
+            return { a: null, b: null };
+        }
     }
 
     async function runDemoMatching() {
-        const date = $('demoDate')?.value || '2026-06-15';
-        const latestDate = $('demoLatestDate')?.value || date;
-        const busyA = [{ start: `${date}T10:00:00Z`, end: `${date}T11:30:00Z` }, { start: `${date}T15:00:00Z`, end: `${date}T16:00:00Z` }];
-        const busyB = [{ start: `${date}T09:30:00Z`, end: `${date}T10:30:00Z` }, { start: `${date}T13:00:00Z`, end: `${date}T14:30:00Z` }];
-        if ($('demoBusyA')) $('demoBusyA').textContent = JSON.stringify(busyA, null, 2);
-        if ($('demoBusyB')) $('demoBusyB').textContent = JSON.stringify(busyB, null, 2);
-        const allowedWindows = convertPrefsArray(collectAvailabilityWindows('demoTimeWindowsContainer') || []);
-        const res = await fetch('/api/demo/options', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-            time_min: `${date}T00:00:00Z`, time_max: `${latestDate}T23:59:59Z`, duration_minutes: Number($('demoDuration')?.value || 30),
-            allowed_windows: allowedWindows, max_options: 3, busy_a: busyA, busy_b: busyB,
-        }) });
-        const data = await res.json().catch(() => ({}));
         const results = $('demoResults');
         if (!results) return;
-        if (!res.ok) { results.innerHTML = `<div class="alert alert-danger">${escapeHtml(data.detail || 'Demo failed')}</div>`; return; }
+        const accounts = await loadDemoConnectors();
+        if (!accounts.a || !accounts.b) {
+            results.innerHTML = '<div class="alert alert-info">Connect both Google calendars above to run demo matching with real free/busy data.</div>';
+            return;
+        }
+        const date = $('demoDate')?.value || new Date().toISOString().slice(0, 10);
+        const timeMin = `${date}T00:00:00Z`;
+        const timeMax = `${date}T23:59:59Z`;
+        const day = (new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7;
+        const payload = {
+            time_min: timeMin,
+            time_max: timeMax,
+            duration_minutes: Number($('demoDuration')?.value || 30),
+            allowed_windows: [{ day, start: $('demoWindowStart')?.value || '09:00', end: $('demoWindowEnd')?.value || '18:00' }],
+            max_options: 3,
+        };
+        results.innerHTML = '<div class="alert alert-secondary">Loading Google free/busy data and calculating options…</div>';
+        const [busyARes, busyBRes, optionsRes] = await Promise.all([
+            fetch(`/freebusy/a?time_min=${encodeURIComponent(timeMin)}&time_max=${encodeURIComponent(timeMax)}`),
+            fetch(`/freebusy/b?time_min=${encodeURIComponent(timeMin)}&time_max=${encodeURIComponent(timeMax)}`),
+            fetch('/matching/options', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
+        ]);
+        const busyA = await busyARes.json().catch(() => ({}));
+        const busyB = await busyBRes.json().catch(() => ({}));
+        const data = await optionsRes.json().catch(() => ({}));
+        if ($('demoBusyA')) $('demoBusyA').textContent = JSON.stringify({ connector: 'Google Calendar A', email: busyA.email || accounts.a.email, busy: busyA.busy || [] }, null, 2);
+        if ($('demoBusyB')) $('demoBusyB').textContent = JSON.stringify({ connector: 'Google Calendar B', email: busyB.email || accounts.b.email, busy: busyB.busy || [] }, null, 2);
+        if (!optionsRes.ok) { results.innerHTML = `<div class="alert alert-danger">${escapeHtml(data.detail || 'Demo matching failed')}</div>`; return; }
+        if (!(data.options || []).length) { results.innerHTML = '<div class="alert alert-warning">No shared options found for this date and time window.</div>'; return; }
         results.innerHTML = (data.options || []).map((slot, index) => `<div class="col-md-4"><div class="card option-card h-100"><div class="card-body"><span class="badge ${index === 0 ? 'text-bg-success' : 'text-bg-light'}">Option ${index + 1}</span><h2 class="h5 mt-3">${escapeHtml(new Date(slot.start).toLocaleString())}</h2><p>${escapeHtml(new Date(slot.end).toLocaleTimeString())}</p><p class="small text-secondary">${escapeHtml(slot.reason)}</p></div></div></div>`).join('');
     }
 
@@ -751,6 +775,7 @@ document.addEventListener("DOMContentLoaded", () => {
             invitee_emails: inviteeEmails,
             friend_ids: friendEmails,
             time_preset_id: $("timePresetSelect")?.value || null,
+            owner_calendar_label: $("requestOwnerCalendar")?.value || null,
             duration_minutes: Number($("durationMinutes")?.value || 30),
             earliest_date: $("earliestDate")?.value || "",
             latest_date: $("latestDate")?.value || "",
@@ -863,6 +888,7 @@ document.addEventListener("DOMContentLoaded", () => {
             setInviteStatus(data.detail || "This invite link is unavailable.", true);
             return;
         }
+        currentInviteRequestId = data.request_id;
         setInviteStatus(`Invite expires ${new Date(data.expires_at).toLocaleString()}.`);
         setText("inviteTitle", data.title);
         setText("inviteSummary", `${data.requester_email} wants to find a shared ${data.duration_minutes}-minute meeting.`);
@@ -872,6 +898,51 @@ document.addEventListener("DOMContentLoaded", () => {
         setText("inviteDates", `${data.earliest_date}–${data.latest_date}`);
         setText("inviteWindow", `${(data.allowed_weekdays || []).join(", ") || "Any day"} · ${data.window_start}–${data.window_end} ${data.timezone}`);
         setText("inviteRequestStatus", data.status);
+        if (window.location.search.includes("accepted=1") || data.status === "awaiting_calendar_connection") {
+            showInviteCalendarPanel();
+        }
+    }
+
+    function showInviteCalendarPanel() {
+        const panel = $("inviteCalendarPanel");
+        if (panel) panel.classList.remove("d-none");
+        loadAccounts().catch(() => {
+            setText("inviteCalendarStatus", "Log in to load linked calendars, or connect Google Calendar after accepting.");
+        });
+    }
+
+    async function selectInviteCalendar() {
+        const status = $("inviteCalendarStatus");
+        const calendarLabel = $("inviteCalendarSelect")?.value || "";
+        if (!currentInviteRequestId) {
+            if (status) status.textContent = "Accept the invite before selecting a calendar.";
+            return;
+        }
+        if (!calendarLabel) {
+            if (status) status.textContent = "Choose one linked calendar first.";
+            return;
+        }
+        if (status) status.textContent = "Saving calendar selection…";
+        const res = await fetch(`/api/requests/${encodeURIComponent(currentInviteRequestId)}/calendar`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ calendar_label: calendarLabel }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (status) {
+            status.className = res.ok ? "small text-success mt-2" : "small text-danger mt-2";
+            status.textContent = res.ok ? "Calendar selected for this request." : (data.detail || "Could not select that calendar.");
+        }
+        if (res.ok) setText("inviteRequestStatus", data.status);
+    }
+
+    function connectInviteCalendar() {
+        if (!currentInviteRequestId) {
+            setText("inviteCalendarStatus", "Accept the invite before connecting a calendar.");
+            return;
+        }
+        const calendarLabel = $("inviteCalendarSelect")?.value || "a";
+        window.location = `/oauth/start?account_label=${encodeURIComponent(calendarLabel || "a")}&request_id=${encodeURIComponent(currentInviteRequestId)}`;
     }
 
     async function respondToInvite(action) {
@@ -1012,6 +1083,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const declineInviteBtn = $("declineInviteBtn");
     if (declineInviteBtn) declineInviteBtn.onclick = () => respondToInvite("decline");
 
+    const selectInviteCalendarBtn = $("selectInviteCalendarBtn");
+    if (selectInviteCalendarBtn) selectInviteCalendarBtn.onclick = selectInviteCalendar;
+    const connectInviteCalendarBtn = $("connectInviteCalendarBtn");
+    if (connectInviteCalendarBtn) connectInviteCalendarBtn.onclick = connectInviteCalendar;
+
     const findBtn = $("findBtn");
     if (findBtn) findBtn.onclick = findMatchingTimes;
 
@@ -1045,9 +1121,9 @@ document.addEventListener("DOMContentLoaded", () => {
         };
     }
     const demoConnectA = $("demoConnectA");
-    if (demoConnectA) demoConnectA.onclick = () => setDemoConnector('A', true);
+    if (demoConnectA) demoConnectA.onclick = async () => { const user = await loadCurrentUser(); if (!user) return alert('Log in before connecting demo calendar A'); window.location = '/oauth/start?account_label=a&return_to=/requests/demo'; };
     const demoConnectB = $("demoConnectB");
-    if (demoConnectB) demoConnectB.onclick = () => setDemoConnector('B', true);
+    if (demoConnectB) demoConnectB.onclick = async () => { const user = await loadCurrentUser(); if (!user) return alert('Log in before connecting demo calendar B'); window.location = '/oauth/start?account_label=b&return_to=/requests/demo'; };
     const runDemoBtn = $("runDemoBtn");
     if (runDemoBtn) runDemoBtn.onclick = runDemoMatching;
     const addTimeWindowBtn = $("addTimeWindowBtn");

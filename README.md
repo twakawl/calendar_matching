@@ -31,6 +31,7 @@ The setup instructions that are needed for the current prototype are included be
 - Offline access with refresh token storage.
 - Fernet encryption for stored refresh tokens.
 - SQLite-backed `users`, `user_sessions`, `oauth_states`, user-owned `google_accounts`, `meeting_requests`, and `request_audit_events` records.
+- Disposable local SQLite seed users are provisioned on startup when missing: `twan.houwers92@gmail.com` and `twan@dutchwebshark.com`, both with password `Test123!`.
 - Google Calendar free/busy reads for primary calendars only; event titles, descriptions, attendees, and locations are not fetched.
 - Combined busy-block response for a selected profile calendar account plus another connected participant calendar in the current prototype.
 - MVP matching endpoint that returns the top three non-overlapping meeting options from duration, weekday, one-or-more allowed time-window sets, and busy-block constraints.
@@ -209,9 +210,9 @@ The current frontend implements the first UI milestone from `docs/ui-design-plan
 - `/friends` — authenticated friend list with email request/accept flow and contact-import placeholder links.
 - `/account` — legacy route that redirects to `/profile`; calendar accounts are managed only from Profile.
 - `/dashboard` — authenticated list of SQLite-backed requests visible to the requester or accepted invitee, with an action to regenerate invite links.
-- `/requests/new` — authenticated request creation wizard-style form with title, multiple invitee emails, friend selections, three quick preset buttons plus ordered preset dropdown, duration, date range, repeatable weekday/time-window sets, SQLite save action, prominent live matching button, top-three option cards, and secondary availability preview.
+- `/requests/new` — authenticated request creation wizard-style form with title, multiple invitee emails, friend selections, three quick preset buttons plus ordered preset dropdown, duration, date range, weekday chips, time window, SQLite save action, prominent live matching button, top-three option cards, and secondary availability preview.
 - `/invite/{token}` — public secure invite preview that resolves non-sensitive request details from a hashed expiring token and lets the matching logged-in invitee accept or decline.
-- `/requests/demo` — public demo request that runs the matching engine against two separate demo calendar busy registries with repeatable weekday/time-window sets and demo presets.
+- `/requests/demo` — authenticated demo request page with two Google Calendar connector cards; it returns from OAuth to the demo page and runs matching against real Google free/busy data.
 - `/requests/demo-request` — request detail placeholder with participant readiness, option cards, and agreement-state placeholders.
 - `/requests/demo-request/availability` — anonymized availability preview placeholder.
 - `/not-implemented/{feature_slug}` — app-style placeholder page for non-working planned functionality with **Back to home** and **Back to previous page** actions.
@@ -226,7 +227,7 @@ The current frontend implements the first UI milestone from `docs/ui-design-plan
 | `/register` | GET | Standalone registration page that collects display name. |
 | `/profile` | GET | Authenticated profile page for editable personal settings and ordered time presets. |
 | `/friends` | GET | Authenticated friend list page. |
-| `/requests/demo` | GET | Public demo request page backed by demo calendar registries. |
+| `/requests/demo` | GET | Authenticated demo request page backed by connected Google Calendar slots A and B. |
 | `/auth/register` | POST | Create an app user and return/set a session token. |
 | `/auth/login` | POST | Authenticate an app user and return/set a session token; unknown emails return a register-first response used by the frontend warning block. |
 | `/auth/logout` | POST | Revoke the current session and clear the session cookie. |
@@ -246,7 +247,7 @@ The current frontend implements the first UI milestone from `docs/ui-design-plan
 | `/freebusy/{account_label}` | GET | Free/busy response for one connected account owned by the logged-in user. Requires `time_min` and `time_max`. |
 | `/pair` | GET | Combined free/busy response for both connected accounts owned by the logged-in user. Requires `time_min` and `time_max`. |
 | `/matching/options` | POST | Returns up to three non-overlapping options for both connected calendars owned by the logged-in user using `time_min`, `time_max`, `duration_minutes`, and optional weekday/time windows. |
-| `/api/demo/options` | POST | Runs the same matching engine against two submitted demo busy registries without using personal calendar connections. |
+| `/api/demo/options` | POST | Runs the same matching engine against two submitted demo busy registries for automated/offline demos; the `/requests/demo` page now uses connected Google calendars. |
 | `/api/profile` | GET/PUT | Returns or updates display name, phone number, timezone preference, selected linked calendar labels, and ordered time presets. |
 | `/api/time-presets` | GET | Returns the current user's ordered time presets. |
 | `/api/friends` | GET/POST | Lists friend requests or sends a new email-address friend request. |

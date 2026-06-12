@@ -55,16 +55,16 @@ This slice moves the prototype from a two-slot calendar test toward a user-cente
 
 ### 5. Demo request
 
-- Add `/requests/demo` as a public demo page.
-- Keep two demo connector cards and their busy registries separate from personally linked calendars.
-- Reuse the same matching engine through a demo API endpoint so the flow remains testable without OAuth.
+- Add `/requests/demo` as an authenticated demo page.
+- Keep two connector cards, but wire them to Google Calendar OAuth slots A and B with `return_to=/requests/demo` so users land back on the demo after consent.
+- Load each connected Google agenda with the same free/busy endpoints as real requests, while keeping `/api/demo/options` available for automated/offline matching tests.
 - Use the same top-three option card visual language as real requests.
 
 ## Implemented prototype scope
 
 - Added database fields and lightweight SQLite migrations for profile metadata, ordered presets, multi-invitee request metadata, and friend requests.
 - Added private profile and friends APIs and pages.
-- Added a public demo matching endpoint and page.
+- Added a Google-calendar-backed demo page plus a public demo matching endpoint for automated/offline test data.
 - Added provider-login placeholder endpoints returning `501 Not Implemented`, because true Google/Microsoft app-login requires provider client configuration separate from calendar-link OAuth.
 - Added a clearer top navigation pattern with visible primary links and a personal dropdown for profile/friends/logout.
 - Improved the login/register/profile/friends/request/demo pages so the main action is prominent, secondary actions are visually quieter, and privacy/helper copy appears near risky decisions.
@@ -76,7 +76,7 @@ This slice moves the prototype from a two-slot calendar test toward a user-cente
 - `/profile` can edit display name, phone, timezone, multiple linked calendar selections, and ordered presets with day/time controls.
 - `/requests/new` shows three quick preset buttons, an ordered preset dropdown, multiple invitee-email support, accepted-friend selection, and top-three matching cards.
 - `/friends` supports email-based friend requests and acceptance, with disabled contact-import placeholders.
-- `/requests/demo` runs matching from two demo calendar connectors/registries without using personal calendar connections.
+- `/requests/demo` runs matching from two connected Google Calendar agendas and displays the free/busy registries used for matching.
 
 ## Follow-up work
 
