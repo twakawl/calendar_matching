@@ -65,8 +65,8 @@ This slice moves the prototype from a two-slot calendar test toward a user-cente
 - Added database fields and lightweight SQLite migrations for profile metadata, ordered presets, multi-invitee request metadata, and friend requests.
 - Added private profile and friends APIs and pages.
 - Added a Google-calendar-backed demo page plus a public demo matching endpoint for automated/offline test data.
-- Added provider-login placeholder endpoints returning `501 Not Implemented`, because true Google/Microsoft app-login requires provider client configuration separate from calendar-link OAuth.
-- Added a clearer top navigation pattern with visible primary links and a personal dropdown for profile/friends/logout.
+- Added provider-login placeholder endpoints that render safe not-implemented pages, because true Google/Microsoft app-login requires provider client configuration separate from calendar-link OAuth.
+- Added a clearer top navigation pattern with visible primary links and a personal dropdown for profile/friends/account/logout.
 - Improved the login/register/profile/friends/request/demo pages so the main action is prominent, secondary actions are visually quieter, and privacy/helper copy appears near risky decisions.
 
 ## Verification checklist

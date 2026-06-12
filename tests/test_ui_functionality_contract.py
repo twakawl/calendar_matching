@@ -103,7 +103,22 @@ class UiFunctionalityContractTest(unittest.TestCase):
         """After OAuth, users should return to Profile where calendar accounts are managed."""
         app_py = (REPO_ROOT / "app.py").read_text()
 
-        self.assertIn('redirect_url = f"/profile?account_label={account_label}&email={email}"', app_py)
+        self.assertIn('return_path = Column(String, nullable=False, default="/account")', app_py)
+        self.assertIn('request_id = Column(String, nullable=True, index=True)', app_py)
+        self.assertIn('request_role = Column(String, nullable=True)', app_py)
+        self.assertIn('return_to: Optional[str] = Query(', app_py)
+        self.assertIn('request_id: Optional[str] = Query(', app_py)
+        self.assertIn('request_id=request_id,', app_py)
+        self.assertIn('request_role=request_role,', app_py)
+        self.assertIn('redirect_url = f"{return_path}{separator}account_label={account_label}&email={email}"', app_py)
+
+    def test_invite_calendar_connection_returns_to_invite_flow(self):
+        """Invitee OAuth starts must preserve request context and return to the invite panel."""
+        app_js = (REPO_ROOT / "static" / "js" / "app.js").read_text()
+
+        self.assertIn('request_id=${encodeURIComponent(currentInviteRequestId)}', app_js)
+        self.assertIn('return_to=${encodeURIComponent(returnTo)}', app_js)
+        self.assertIn('const returnTo = `${window.location.pathname}?accepted=1`;', app_js)
 
 
 if __name__ == "__main__":
