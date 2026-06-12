@@ -177,6 +177,7 @@ class OAuthState(Base):
     state = Column(String, primary_key=True)
     user_id = Column(String, nullable=False, index=True)
     account_label = Column(String, nullable=False)
+    return_path = Column(String, nullable=False, default="/account")
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
     used_at = Column(DateTime, nullable=True)
@@ -265,6 +266,16 @@ def _run_lightweight_migrations() -> None:
                 text("SELECT name FROM sqlite_master WHERE type='table'")
             )
         }
+        if "oauth_states" in request_tables:
+            oauth_columns = {
+                row[1]
+                for row in connection.execute(text("PRAGMA table_info(oauth_states)"))
+            }
+            if "return_path" not in oauth_columns:
+                connection.execute(
+                    text("ALTER TABLE oauth_states ADD COLUMN return_path VARCHAR DEFAULT '/account'")
+                )
+
         if "users" in request_tables:
             user_columns = {
                 row[1] for row in connection.execute(text("PRAGMA table_info(users)"))
@@ -970,9 +981,9 @@ async def friends_page(request: Request):
 
 
 @app.get("/requests/demo", response_class=HTMLResponse)
-async def demo_request_page():
-    """Serve the public demo request page with separated demo calendars."""
-    return _serve_html("demo_request.html")
+async def demo_request_page(request: Request):
+    """Serve the demo request page for trying matching with connected Google calendars."""
+    return _serve_authenticated_html(request, "demo_request.html")
 
 
 @app.get("/account", response_class=HTMLResponse)
@@ -1650,9 +1661,23 @@ async def demo_matching_options(request: DemoMatchingRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+def _safe_oauth_return_path(return_to: Optional[str]) -> str:
+    """Allow OAuth callbacks to return only to in-app relative paths."""
+    if not return_to:
+        return "/account"
+    cleaned = return_to.strip()
+    if not cleaned.startswith("/") or cleaned.startswith("//") or "\\" in cleaned:
+        return "/account"
+    return cleaned
+
+
 @app.get("/oauth/start", tags=["OAuth"])
 async def oauth_start(
     account_label: str = Query(..., description="Account label: 'a' or 'b'"),
+    return_to: Optional[str] = Query(
+        default=None,
+        description="Relative app path to return to after Google OAuth completes",
+    ),
     current_user: User = Depends(require_current_user),
 ):
     """
@@ -1670,6 +1695,7 @@ async def oauth_start(
             state=secrets.token_urlsafe(32),
             user_id=current_user.id,
             account_label=account_label,
+            return_path=_safe_oauth_return_path(return_to),
             expires_at=datetime.utcnow() + timedelta(minutes=15),
         )
         db.add(oauth_state)
@@ -1765,6 +1791,7 @@ async def oauth_callback(code: str = Query(...), state: str = Query(...)):
                 raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
             oauth_state.used_at = datetime.utcnow()
             account_label = oauth_state.account_label
+            return_path = _safe_oauth_return_path(oauth_state.return_path)
 
             # remove any stale rows where sub is empty (was causing duplicates)
             db.query(GoogleAccount).filter(GoogleAccount.google_sub == "").delete()
@@ -1796,9 +1823,10 @@ async def oauth_callback(code: str = Query(...), state: str = Query(...)):
         finally:
             db.close()
 
-        # Redirect back to the account page so the new templates show connection status
-        # and the user can immediately connect the second calendar slot if needed.
-        redirect_url = f"/account?account_label={account_label}&email={email}"
+        # Redirect back to the page that started OAuth so account and demo pages can
+        # immediately show the new Google Calendar connection status.
+        separator = "&" if "?" in return_path else "?"
+        redirect_url = f"{return_path}{separator}account_label={account_label}&email={email}"
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:
