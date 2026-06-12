@@ -178,6 +178,8 @@ class OAuthState(Base):
     user_id = Column(String, nullable=False, index=True)
     account_label = Column(String, nullable=False)
     return_path = Column(String, nullable=False, default="/account")
+    request_id = Column(String, nullable=True, index=True)
+    request_role = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
     used_at = Column(DateTime, nullable=True)
@@ -1816,6 +1818,10 @@ async def oauth_start(
         default=None,
         description="Relative app path to return to after Google OAuth completes",
     ),
+    request_id: Optional[str] = Query(
+        default=None,
+        description="Visible meeting request to mark ready when this calendar connects",
+    ),
     current_user: User = Depends(require_current_user),
 ):
     """
@@ -1830,6 +1836,7 @@ async def oauth_start(
     db = SessionLocal()
     try:
         request_role = None
+        safe_return_path = _safe_oauth_return_path(return_to)
         if request_id:
             record = _get_visible_request_or_404(db, request_id, current_user)
             if record.owner_user_id == current_user.id:
@@ -1838,12 +1845,16 @@ async def oauth_start(
                 request_role = "invitee"
                 record.invitee_user_id = current_user.id
                 db.add(record)
+            if not return_to:
+                safe_return_path = f"/requests/{request_id}"
 
         oauth_state = OAuthState(
             state=secrets.token_urlsafe(32),
             user_id=current_user.id,
             account_label=account_label,
-            return_path=_safe_oauth_return_path(return_to),
+            return_path=safe_return_path,
+            request_id=request_id,
+            request_role=request_role,
             expires_at=datetime.utcnow() + timedelta(minutes=15),
         )
         db.add(oauth_state)
