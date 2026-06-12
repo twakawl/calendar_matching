@@ -54,6 +54,7 @@ class PrototypeUiRoutesTest(unittest.TestCase):
             "/account",
             "/dashboard",
             "/requests/new",
+            "/requests/demo",
             "/invite/demo-token",
             "/not-implemented/google-login",
             "/not-implemented/microsoft-calendar",

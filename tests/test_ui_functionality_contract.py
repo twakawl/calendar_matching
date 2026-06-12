@@ -73,10 +73,13 @@ class UiFunctionalityContractTest(unittest.TestCase):
 
         self.assertIn('fetch(`/pair?time_min=${encodeURIComponent(timeMin)}', app_js)
         self.assertIn('fetch("/matching/options"', app_js)
+        self.assertIn("fetch('/matching/options'", app_js)
         self.assertIn('window.location = "/oauth/start?account_label=a"', app_js)
         self.assertIn('window.location = "/oauth/start?account_label=b"', app_js)
-        self.assertIn('setAvailabilityWindows(preset.windows)', app_js)
-        self.assertIn("collectAvailabilityWindows('demoTimeWindowsContainer')", app_js)
+        self.assertIn("/oauth/start?account_label=a&return_to=/requests/demo", app_js)
+        self.assertIn("/oauth/start?account_label=b&return_to=/requests/demo", app_js)
+        self.assertIn('fetch(`/freebusy/a?time_min=${encodeURIComponent(timeMin)}', app_js)
+        self.assertIn('fetch(`/freebusy/b?time_min=${encodeURIComponent(timeMin)}', app_js)
 
     def test_not_implemented_pages_keep_navigation_contract(self):
         """Placeholder feature pages must provide home and previous-page actions."""
@@ -97,11 +100,13 @@ class UiFunctionalityContractTest(unittest.TestCase):
         self.assertIn('/not-implemented/microsoft-contact-import', friends_html)
         self.assertIn('/not-implemented/android-contact-import', friends_html)
 
-    def test_oauth_callback_returns_to_account_page_for_new_templates(self):
-        """After OAuth, users should return to a page that has the account status UI."""
+    def test_oauth_callback_returns_to_starting_page_for_new_templates(self):
+        """After OAuth, users should return to the app page that started the flow."""
         app_py = (REPO_ROOT / "app.py").read_text()
 
-        self.assertIn('redirect_url = f"/account?account_label={account_label}&email={email}"', app_py)
+        self.assertIn('return_path = Column(String, nullable=False, default="/account")', app_py)
+        self.assertIn('return_to: Optional[str] = Query(', app_py)
+        self.assertIn('redirect_url = f"{return_path}{separator}account_label={account_label}&email={email}"', app_py)
 
 
 if __name__ == "__main__":
