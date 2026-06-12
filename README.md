@@ -31,9 +31,10 @@ The setup instructions that are needed for the current prototype are included be
 - Offline access with refresh token storage.
 - Fernet encryption for stored refresh tokens.
 - SQLite-backed `users`, `user_sessions`, `oauth_states`, user-owned `google_accounts`, `meeting_requests`, and `request_audit_events` records.
+- Disposable local SQLite seed users are provisioned on startup when missing: `twan.houwers92@gmail.com` and `twan@dutchwebshark.com`, both with password `Test123!`.
 - Google Calendar free/busy reads for primary calendars only; event titles, descriptions, attendees, and locations are not fetched.
 - Combined busy-block response for two connected accounts.
-- MVP matching endpoint that returns the top three non-overlapping meeting options from duration, weekday, allowed-hour, and busy-block constraints.
+- MVP matching endpoint that returns the top three non-overlapping meeting options from duration, weekday, one-or-more allowed time-window sets, and busy-block constraints.
 - Bootstrap-based multi-page frontend with a public informational home page, polished login/register screens, a clear top navigation bar with personal dropdown menu, authenticated dashboard, account/calendar connection cards, profile and friends pages, SQLite-backed multi-invitee request creation/listing, secure invite preview with accept/decline actions, request-detail placeholders, responsive availability preview, a public demo request, and live top-three matching cards backed by the existing Google free/busy prototype.
 - Automatic access-token refresh before Calendar API calls.
 

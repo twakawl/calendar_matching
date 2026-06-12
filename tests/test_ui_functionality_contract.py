@@ -46,6 +46,8 @@ class UiFunctionalityContractTest(unittest.TestCase):
             "latestDate",
             "windowStart",
             "windowEnd",
+            "timeWindowsContainer",
+            "addTimeWindowBtn",
             "findBtn",
             "saveRequestBtn",
             "requestSaveStatus",
@@ -62,6 +64,7 @@ class UiFunctionalityContractTest(unittest.TestCase):
                 self.assertIn(f'id="{element_id}"', request_html)
 
         self.assertIn("weekday-input", request_html)
+        self.assertIn("+ Add another time", request_html)
         self.assertIn("Find best options", request_html)
 
     def test_javascript_references_existing_matching_endpoints(self):
