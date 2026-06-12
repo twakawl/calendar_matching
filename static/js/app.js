@@ -974,7 +974,8 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
         const calendarLabel = $("inviteCalendarSelect")?.value || "a";
-        window.location = `/oauth/start?account_label=${encodeURIComponent(calendarLabel || "a")}&request_id=${encodeURIComponent(currentInviteRequestId)}`;
+        const returnTo = `${window.location.pathname}?accepted=1`;
+        window.location = `/oauth/start?account_label=${encodeURIComponent(calendarLabel || "a")}&request_id=${encodeURIComponent(currentInviteRequestId)}&return_to=${encodeURIComponent(returnTo)}`;
     }
 
     async function respondToInvite(action) {

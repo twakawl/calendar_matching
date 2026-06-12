@@ -245,7 +245,7 @@ The current frontend implements the first UI milestone from `docs/ui-design-plan
 | `/api/invites/{token}` | GET | Preview non-sensitive details for an unexpired invite token. |
 | `/api/invites/{token}/accept` | POST | Accept an invite as the logged-in invitee. |
 | `/api/invites/{token}/decline` | POST | Decline an invite as the logged-in invitee. |
-| `/oauth/start?account_label=a` | GET | Start Google OAuth for user-owned account slot `a` or `b`; accepts optional `return_to` for safe relative callback redirects such as `/requests/demo`; requires login. |
+| `/oauth/start?account_label=a` | GET | Start Google OAuth for user-owned account slot `a` or `b`; accepts optional `return_to` for safe relative callback redirects such as `/requests/demo` and optional `request_id` so invitee calendar connections can update the visible meeting request; requires login. |
 | `/oauth/callback` | GET | OAuth callback used by Google. |
 | `/freebusy/{account_label}` | GET | Free/busy response for one connected account owned by the logged-in user. Requires `time_min` and `time_max`. |
 | `/pair` | GET | Combined free/busy response for both connected accounts owned by the logged-in user. Requires `time_min` and `time_max`. |
