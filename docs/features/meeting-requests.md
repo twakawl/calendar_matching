@@ -74,7 +74,9 @@ A logged-in user can create a meeting request and invite another user through a 
 ## Current UX additions for request creation
 
 - The request creation page uses a step-based card so basics, participants, dates, and rules are easier to scan.
-- The three highest-priority time presets are exposed as quick buttons, while every ordered profile preset remains available in a dropdown.
+- The three highest-priority time presets are exposed as quick buttons, while every ordered profile preset remains available in a dropdown; presets with different timings are grouped into separate day/time sets.
 - The primary action is visually emphasized as **Find best options**; saving the SQLite draft remains available as a secondary action.
 - Multiple typed invitee emails and accepted friend selections are combined into the request payload.
 - Top-three option cards appear before the detailed availability grid so users first see the product's main recommendation.
+
+- **Add another time** is active on request creation and demo matching, allowing combinations such as Monday–Friday 10:00–12:00 plus Wednesday–Thursday 10:00–15:00.

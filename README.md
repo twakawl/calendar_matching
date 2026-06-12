@@ -24,9 +24,9 @@ The setup instructions that are needed for the current prototype are included be
 
 ## Implemented features
 
-- First-party registration, standalone login, logout, HTTP-only session cookies, bearer-token API sessions, and visible placeholder buttons for future Google/Microsoft app-login.
-- Dedicated registration page plus editable personal profile with display name, phone number, timezone preference, linked calendar preference, and ordered time presets.
-- Friends page with email-based friend requests, acceptance, and disabled contact-import placeholders for Gmail, Apple, Microsoft, and Android.
+- First-party registration, standalone login, logout, HTTP-only session cookies, bearer-token API sessions, an inline register warning for unknown login emails, and app-style placeholder pages for future Google/Microsoft app-login.
+- Dedicated registration page with email/password prefill from an unknown-email login attempt, default display name from the email local part, plus editable personal profile with display name, phone number, timezone preference, linked calendar preference, and ordered time presets.
+- Friends page with email-based friend requests, acceptance, and contact-import placeholder links for Gmail, Apple, Microsoft, and Android.
 - OAuth 2.0 Web Server Flow for Google Calendar tied to the logged-in user.
 - Offline access with refresh token storage.
 - Fernet encryption for stored refresh tokens.
@@ -34,8 +34,8 @@ The setup instructions that are needed for the current prototype are included be
 - Disposable local SQLite seed users are provisioned on startup when missing: `twan.houwers92@gmail.com` and `twan@dutchwebshark.com`, both with password `Test123!`.
 - Google Calendar free/busy reads for primary calendars only; event titles, descriptions, attendees, and locations are not fetched.
 - Combined busy-block response for two connected accounts.
-- MVP matching endpoint that returns the top three non-overlapping meeting options from duration, weekday, allowed-hour, and busy-block constraints.
-- Bootstrap-based multi-page frontend with a public informational home page, polished login/register screens, a clear top navigation bar with personal dropdown menu, authenticated dashboard, account/calendar connection cards, profile and friends pages, SQLite-backed multi-invitee request creation/listing with one requester-selected linked calendar, secure invite preview with accept/decline actions plus invitee calendar selection/connection, request-detail placeholders, responsive availability preview, a public demo request, and live top-three matching cards backed by the existing Google free/busy prototype.
+- MVP matching endpoint that returns the top three non-overlapping meeting options from duration, weekday, one-or-more allowed time-window sets, and busy-block constraints.
+- Bootstrap-based multi-page frontend with a public informational home page, polished login/register screens, a clear top navigation bar with personal dropdown menu, authenticated dashboard, account/calendar connection cards, profile and friends pages, SQLite-backed multi-invitee request creation/listing, secure invite preview with accept/decline actions, request-detail placeholders, responsive availability preview, a public demo request, and live top-three matching cards backed by the existing Google free/busy prototype.
 - Automatic access-token refresh before Calendar API calls.
 
 ## Future implementation scope
@@ -206,17 +206,18 @@ http://127.0.0.1:8000/oauth/start?account_label=b
 The current frontend implements the first UI milestone from `docs/ui-design-plan.md` as static Bootstrap pages with placeholders where backend request persistence and participant workflows will be added later:
 
 - `/` — public landing page with privacy-first product explanation and a top-right login button.
-- `/login` — first-party email login page with prominent email login, secondary Google/Microsoft app-login placeholders, and privacy guidance.
-- `/register` — first-party registration page with display name collection.
+- `/login` — first-party email login page with prominent email login, a text register link below the login button, an inline warning/register handoff for unknown accounts, secondary Google/Microsoft app-login placeholder links, and privacy guidance.
+- `/register` — first-party registration page with display name collection, default display name from the email text before `@`, email/password prefill after an unknown-account login, and an "I already have an account" text link below the submit button.
 - `/profile` — authenticated personal profile with display name, phone number, timezone preference, linked calendar preference, ordered time presets, and a personal dropdown menu shared with friends/account routes.
-- `/friends` — authenticated friend list with email request/accept flow and disabled contact-import placeholders.
-- `/account` — authenticated Google Calendar connection cards for prototype slots A and B, plus a Microsoft Calendar placeholder.
+- `/friends` — authenticated friend list with email request/accept flow and contact-import placeholder links.
+- `/account` — authenticated Google Calendar connection cards for prototype slots A and B, plus a Microsoft Calendar placeholder that opens a not-implemented app page.
 - `/dashboard` — authenticated list of SQLite-backed requests visible to the requester or accepted invitee, with an action to regenerate invite links.
 - `/requests/new` — authenticated request creation wizard-style form with title, multiple invitee emails, friend selections, one selected linked calendar for the requester, three quick preset buttons plus ordered preset dropdown, duration, date range, weekday chips, time window, SQLite save action, prominent live matching button, top-three option cards, and secondary availability preview.
 - `/invite/{token}` — public secure invite preview that resolves non-sensitive request details from a hashed expiring token and lets the matching logged-in invitee accept or decline, then select a linked calendar or connect Google Calendar in the same request context.
 - `/requests/demo` — public demo request that runs the matching engine against two separate demo calendar busy registries.
 - `/requests/demo-request` — request detail placeholder with participant readiness, option cards, and agreement-state placeholders.
 - `/requests/demo-request/availability` — anonymized availability preview placeholder.
+- `/not-implemented/{feature_slug}` — app-style placeholder page for non-working planned functionality with **Back to home** and **Back to previous page** actions.
 
 ## API endpoints
 
@@ -230,9 +231,11 @@ The current frontend implements the first UI milestone from `docs/ui-design-plan
 | `/friends` | GET | Authenticated friend list page. |
 | `/requests/demo` | GET | Public demo request page backed by demo calendar registries. |
 | `/auth/register` | POST | Create an app user and return/set a session token. |
-| `/auth/login` | POST | Authenticate an app user and return/set a session token. |
+| `/auth/login` | POST | Authenticate an app user and return/set a session token; unknown emails return a register-first response used by the frontend warning block. |
 | `/auth/logout` | POST | Revoke the current session and clear the session cookie. |
 | `/auth/me` | GET | Return the logged-in app user. |
+| `/not-implemented/{feature_slug}` | GET | Render an app page for planned but non-working functionality with home and previous-page navigation. |
+| `/auth/oauth/{provider}` | GET | Render the not-implemented app-login page for future Google/Microsoft app-login providers. |
 | `/api/requests` | GET | List SQLite-backed meeting requests visible to the logged-in requester or invitee. |
 | `/api/requests` | POST | Create a SQLite-backed meeting request and return a one-time-visible secure invite URL. |
 | `/api/requests/{request_id}` | GET | Return one visible meeting request for the logged-in requester or invitee. |
@@ -247,7 +250,7 @@ The current frontend implements the first UI milestone from `docs/ui-design-plan
 | `/pair` | GET | Combined free/busy response for both connected accounts owned by the logged-in user. Requires `time_min` and `time_max`. |
 | `/matching/options` | POST | Returns up to three non-overlapping options for both connected calendars owned by the logged-in user using `time_min`, `time_max`, `duration_minutes`, and optional weekday/time windows. |
 | `/api/demo/options` | POST | Runs the same matching engine against two submitted demo busy registries without using personal calendar connections. |
-| `/api/profile` | GET/PUT | Returns or updates display name, phone number, timezone preference, linked calendar preference, and ordered time presets. |
+| `/api/profile` | GET/PUT | Returns or updates display name, phone number, timezone preference, selected linked calendar labels, and ordered time presets. |
 | `/api/time-presets` | GET | Returns the current user's ordered time presets. |
 | `/api/friends` | GET/POST | Lists friend requests or sends a new email-address friend request. |
 | `/api/friends/{id}/accept` | POST | Accepts a pending friend request addressed to the current user. |
@@ -314,7 +317,7 @@ For the first hosted deployment, follow `cloud_hosting/fly_io.md` and add the Fl
 
 ## Database schema
 
-The prototype creates a local SQLite database by default. Authentication data lives in `users` and `user_sessions`; session tokens are stored only as SHA-256 hashes and passwords are stored as PBKDF2 hashes. OAuth callbacks are protected with short-lived one-time `oauth_states`. Meeting requests live in `meeting_requests` with title, invitee email, duration, date range, time window, selected weekdays, notes, status, hashed invite token, invite expiration/open/accept/decline timestamps, invitee user linkage, and timestamps. Lifecycle events live in `request_audit_events`. The `google_accounts` table contains:
+The prototype creates a local SQLite database by default. Authentication and profile data lives in `users` and `user_sessions`; session tokens are stored only as SHA-256 hashes, passwords are stored as PBKDF2 hashes, and selected profile calendar labels are stored in `linked_calendar_labels` for later request flows. OAuth callbacks are protected with short-lived one-time `oauth_states`. Meeting requests live in `meeting_requests` with title, invitee email, duration, date range, time window, selected weekdays, notes, status, hashed invite token, invite expiration/open/accept/decline timestamps, invitee user linkage, and timestamps. Lifecycle events live in `request_audit_events`. The `google_accounts` table contains:
 
 | Column | Purpose |
 | --- | --- |

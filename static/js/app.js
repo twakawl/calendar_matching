@@ -171,7 +171,24 @@ document.addEventListener("DOMContentLoaded", () => {
         return { timeMin: now.toISOString(), timeMax: later.toISOString() };
     }
 
+    function collectAvailabilityWindows(containerId = "timeWindowsContainer") {
+        const container = $(containerId);
+        if (!container) return null;
+        const prefs = [];
+        container.querySelectorAll(".availability-window").forEach((windowEl) => {
+            const start = windowEl.querySelector(".window-start")?.value || "09:00";
+            const end = windowEl.querySelector(".window-end")?.value || "17:00";
+            windowEl.querySelectorAll(".weekday-input").forEach((input) => {
+                if (input.checked) prefs.push({ day: input.dataset.day, start, end });
+            });
+        });
+        return prefs;
+    }
+
     function getPrefsFromTable() {
+        const availabilityPrefs = collectAvailabilityWindows();
+        if (availabilityPrefs) return availabilityPrefs;
+
         const weekdayInputs = document.querySelectorAll(".weekday-input");
         if (weekdayInputs.length > 0) {
             const start = $("windowStart")?.value || "09:00";
@@ -202,8 +219,68 @@ document.addEventListener("DOMContentLoaded", () => {
     function convertPrefsArray(arr) {
         const days = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
         return (arr || [])
-            .map((p) => ({ day: days[p.day], start: p.start, end: p.end }))
-            .filter((p) => Number.isInteger(p.day) && p.start && p.end && p.start < p.end);
+            .map((p) => ({ day: Number.isInteger(p.day) ? p.day : days[p.day], start: p.start, end: p.end }))
+            .filter((p) => Number.isInteger(p.day) && p.day >= 0 && p.day <= 6 && p.start && p.end && p.start < p.end);
+    }
+
+    function groupWindowsByTime(windows) {
+        const grouped = new Map();
+        (windows || []).forEach((window) => {
+            const day = Number.isInteger(window.day) ? window.day : dayNames.indexOf(window.day);
+            if (day < 0 || day > 6 || !window.start || !window.end) return;
+            const key = `${window.start}|${window.end}`;
+            if (!grouped.has(key)) grouped.set(key, { start: window.start, end: window.end, days: [] });
+            grouped.get(key).days.push(day);
+        });
+        return Array.from(grouped.values());
+    }
+
+    function availabilityWindowTemplate(index, group = {}) {
+        const prefix = group.prefix || "window";
+        const checkboxClass = group.checkboxClass || "weekday-input";
+        const startId = index === 0 && prefix === "window" ? "windowStart" : `${prefix}Start-${index}`;
+        const endId = index === 0 && prefix === "window" ? "windowEnd" : `${prefix}End-${index}`;
+        const selectedDays = new Set(group.days || (index === 0 ? [0, 1, 2, 3, 4] : []));
+        const dayButtons = dayNames.map((dayName, dayIndex) => {
+            const id = `${prefix}Day-${index}-${dayName}`;
+            return `<input class="btn-check ${checkboxClass}" type="checkbox" id="${id}" data-day="${dayName}" ${selectedDays.has(dayIndex) ? "checked" : ""}><label class="btn btn-outline-primary" for="${id}">${dayName}</label>`;
+        }).join("");
+        return `
+            <div class="availability-window border rounded-4 p-3" data-window-index="${index}">
+                <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                    <h3 class="h6 mb-0">Time set ${index + 1}</h3>
+                    ${index > 0 ? '<button class="btn btn-outline-danger btn-sm remove-time-window" type="button">Remove</button>' : '<span class="badge text-bg-light">Shared days and timing</span>'}
+                </div>
+                <div class="weekday-selector mb-3" role="group" aria-label="Allowed weekdays for time set ${index + 1}">${dayButtons}</div>
+                <div class="row g-3">
+                    <div class="col-6"><label class="form-label" for="${startId}">Between</label><input id="${startId}" type="time" class="form-control window-start" value="${escapeHtml(group.start || "09:00")}"></div>
+                    <div class="col-6"><label class="form-label" for="${endId}">And</label><input id="${endId}" type="time" class="form-control window-end" value="${escapeHtml(group.end || "17:00")}"></div>
+                </div>
+            </div>`;
+    }
+
+    function wireAvailabilityWindowRemovers(container) {
+        container.querySelectorAll(".remove-time-window").forEach((button) => {
+            button.onclick = () => button.closest(".availability-window")?.remove();
+        });
+    }
+
+    function addAvailabilityWindow(containerId = "timeWindowsContainer", group = {}) {
+        const container = $(containerId);
+        if (!container) return;
+        const index = container.querySelectorAll(".availability-window").length;
+        container.insertAdjacentHTML("beforeend", availabilityWindowTemplate(index, group));
+        wireAvailabilityWindowRemovers(container);
+    }
+
+    function setAvailabilityWindows(windows, containerId = "timeWindowsContainer", options = {}) {
+        const container = $(containerId);
+        if (!container) return;
+        const groups = groupWindowsByTime(windows);
+        container.innerHTML = (groups.length ? groups : [{ days: [0, 1, 2, 3, 4], start: "09:00", end: "17:00" }])
+            .map((group, index) => availabilityWindowTemplate(index, { ...group, ...options }))
+            .join("");
+        wireAvailabilityWindowRemovers(container);
     }
 
     function inPref(isoDateTime, prefs) {
@@ -370,6 +447,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const list = await res.json();
         accountsLoaded = list.length;
+        renderProfileLinkedCalendars(list);
 
         const accountA = list.find((acc) => acc.account_label === "a");
         const accountB = list.find((acc) => acc.account_label === "b");
@@ -432,6 +510,32 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     let profilePresets = [];
+    let profileLinkedCalendarLabels = [];
+
+    function renderProfileLinkedCalendars(accounts) {
+        const container = $('profileLinkedCalendarList');
+        if (!container) return;
+        if (!accounts || accounts.length === 0) {
+            container.innerHTML = `<div class="border rounded-4 p-3 bg-white"><p class="mb-2 fw-semibold">No calendars connected yet.</p><p class="small text-secondary mb-0">Use the connector buttons below to add Google calendar slots to this profile.</p></div>`;
+            return;
+        }
+        container.innerHTML = accounts.map((account) => {
+            const label = escapeHtml(account.account_label);
+            const checked = profileLinkedCalendarLabels.includes(account.account_label) ? 'checked' : '';
+            return `<div class="linked-calendar-option border rounded-4 p-3 bg-white">
+                <input class="form-check-input profile-calendar-input" type="checkbox" id="profileCalendar-${label}" value="${label}" ${checked}>
+                <label class="form-check-label ms-2" for="profileCalendar-${label}"><strong>${escapeHtml(account.email)}</strong><span class="d-block small text-secondary">Google Calendar slot ${label.toUpperCase()}</span></label>
+            </div>`;
+        }).join('');
+        container.querySelectorAll('.profile-calendar-input').forEach((input) => {
+            input.addEventListener('change', () => {
+                profileLinkedCalendarLabels = Array.from(container.querySelectorAll('.profile-calendar-input'))
+                    .filter((checkbox) => checkbox.checked)
+                    .map((checkbox) => checkbox.value);
+                if ($('profileLinkedCalendar')) $('profileLinkedCalendar').value = profileLinkedCalendarLabels[0] || '';
+            });
+        });
+    }
 
     async function loadProfile() {
         if (!$('profileDisplayName') && !$('presetList') && !$('timePresetSelect')) return;
@@ -439,26 +543,57 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!res.ok) return;
         const profile = await res.json();
         profilePresets = profile.time_presets || [];
+        profileLinkedCalendarLabels = profile.linked_calendar_labels || (profile.linked_calendar_label ? [profile.linked_calendar_label] : []);
         if ($('profileDisplayName')) $('profileDisplayName').value = profile.display_name || '';
         if ($('profilePhone')) $('profilePhone').value = profile.phone_number || '';
         if ($('profileTimezone')) $('profileTimezone').value = profile.timezone_preference || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-        if ($('profileLinkedCalendar')) $('profileLinkedCalendar').value = profile.linked_calendar_label || '';
+        if ($('profileLinkedCalendar')) $('profileLinkedCalendar').value = profileLinkedCalendarLabels[0] || '';
+        if ($('profileLinkedCalendarList')) loadAccounts().catch(() => { });
         renderPresetList();
         renderRequestPresetControls(profilePresets);
+    }
+
+    function selectedWindowDays(preset) {
+        return new Set((preset.windows || []).map((window) => Number(window.day)));
+    }
+
+    function firstPresetWindow(preset) {
+        return (preset.windows || [])[0] || { day: 0, start: '09:00', end: '17:00' };
+    }
+
+    function syncPresetFromCard(card, index) {
+        const start = card.querySelector('.preset-start')?.value || '09:00';
+        const end = card.querySelector('.preset-end')?.value || '17:00';
+        const days = Array.from(card.querySelectorAll('.preset-day-input'))
+            .filter((input) => input.checked)
+            .map((input) => Number(input.value));
+        profilePresets[index].windows = days.map((day) => ({ day, start, end }));
+        const summary = card.querySelector('.preset-summary');
+        if (summary) summary.textContent = presetToText(profilePresets[index]) || 'Select at least one day.';
     }
 
     function renderPresetList() {
         const list = $('presetList');
         if (!list) return;
-        list.innerHTML = profilePresets.map((preset, index) => `
-            <div class="preset-card border rounded-4 p-3" data-index="${index}">
+        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        list.innerHTML = profilePresets.map((preset, index) => {
+            const selectedDays = selectedWindowDays(preset);
+            const firstWindow = firstPresetWindow(preset);
+            const dayButtons = dayNames.map((name, day) => `
+                <input class="btn-check preset-day-input" type="checkbox" id="preset-${index}-day-${day}" value="${day}" ${selectedDays.has(day) ? 'checked' : ''}>
+                <label class="btn btn-outline-primary btn-sm" for="preset-${index}-day-${day}">${name}</label>`).join('');
+            return `<div class="preset-card border rounded-4 p-3" data-index="${index}">
                 <div class="d-flex justify-content-between gap-2 align-items-start">
                     <div class="flex-grow-1">
                         <label class="form-label small" for="presetName-${index}">Preset name</label>
                         <input id="presetName-${index}" class="form-control preset-name" value="${escapeHtml(preset.name)}">
-                        <label class="form-label small mt-2" for="presetWindows-${index}">Windows JSON</label>
-                        <textarea id="presetWindows-${index}" class="form-control preset-windows" rows="3">${escapeHtml(JSON.stringify(preset.windows || []))}</textarea>
-                        <p class="small text-secondary mt-2 mb-0">${escapeHtml(presetToText(preset))}</p>
+                        <label class="form-label small mt-3">Selectable days</label>
+                        <div class="weekday-selector preset-weekday-selector mb-3" role="group" aria-label="Preset weekdays">${dayButtons}</div>
+                        <div class="row g-3">
+                            <div class="col-sm-6"><label class="form-label small" for="presetStart-${index}">Between</label><input id="presetStart-${index}" type="time" class="form-control preset-start" value="${escapeHtml(firstWindow.start)}"></div>
+                            <div class="col-sm-6"><label class="form-label small" for="presetEnd-${index}">And</label><input id="presetEnd-${index}" type="time" class="form-control preset-end" value="${escapeHtml(firstWindow.end)}"></div>
+                        </div>
+                        <p class="small text-secondary mt-2 mb-0 preset-summary">${escapeHtml(presetToText(preset) || 'Select at least one day.')}</p>
                     </div>
                     <div class="btn-group-vertical">
                         <button class="btn btn-outline-secondary btn-sm preset-up" type="button">↑</button>
@@ -466,14 +601,12 @@ document.addEventListener("DOMContentLoaded", () => {
                         <button class="btn btn-outline-danger btn-sm preset-remove" type="button">Remove</button>
                     </div>
                 </div>
-            </div>`).join('');
+            </div>`;
+        }).join('');
         list.querySelectorAll('.preset-card').forEach((card) => {
             const index = Number(card.dataset.index);
             card.querySelector('.preset-name').addEventListener('input', (event) => { profilePresets[index].name = event.target.value; });
-            card.querySelector('.preset-windows').addEventListener('change', (event) => {
-                try { profilePresets[index].windows = JSON.parse(event.target.value); }
-                catch { alert('Preset windows must be valid JSON like [{"day":0,"start":"18:00","end":"21:00"}]'); }
-            });
+            card.querySelectorAll('.preset-day-input, .preset-start, .preset-end').forEach((input) => input.addEventListener('change', () => syncPresetFromCard(card, index)));
             card.querySelector('.preset-up').addEventListener('click', () => { if (index > 0) { [profilePresets[index - 1], profilePresets[index]] = [profilePresets[index], profilePresets[index - 1]]; renderPresetList(); } });
             card.querySelector('.preset-down').addEventListener('click', () => { if (index < profilePresets.length - 1) { [profilePresets[index + 1], profilePresets[index]] = [profilePresets[index], profilePresets[index + 1]]; renderPresetList(); } });
             card.querySelector('.preset-remove').addEventListener('click', () => { profilePresets.splice(index, 1); renderPresetList(); });
@@ -483,11 +616,16 @@ document.addEventListener("DOMContentLoaded", () => {
     async function saveProfile() {
         const status = $('profileStatus');
         if (status) status.textContent = 'Saving profile…';
+        document.querySelectorAll('.preset-card').forEach((card) => syncPresetFromCard(card, Number(card.dataset.index)));
+        profileLinkedCalendarLabels = Array.from(document.querySelectorAll('.profile-calendar-input'))
+            .filter((input) => input.checked)
+            .map((input) => input.value);
         const payload = {
             display_name: $('profileDisplayName')?.value || '',
             phone_number: $('profilePhone')?.value || '',
             timezone_preference: $('profileTimezone')?.value || 'UTC',
-            linked_calendar_label: $('profileLinkedCalendar')?.value || null,
+            linked_calendar_label: profileLinkedCalendarLabels[0] || null,
+            linked_calendar_labels: profileLinkedCalendarLabels,
             time_presets: profilePresets,
         };
         const res = await fetch('/api/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -566,27 +704,39 @@ document.addEventListener("DOMContentLoaded", () => {
     function applyPreset(id) {
         const preset = profilePresets.find((item) => item.id === id);
         if (!preset || !(preset.windows || []).length) return;
-        document.querySelectorAll('.weekday-input').forEach((input) => { input.checked = false; });
-        const first = preset.windows[0];
-        if ($('windowStart')) $('windowStart').value = first.start;
-        if ($('windowEnd')) $('windowEnd').value = first.end === '23:59' ? '23:59' : first.end;
-        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        preset.windows.forEach((window) => {
-            const checkbox = document.querySelector(`.weekday-input[data-day="${dayNames[window.day]}"]`);
-            if (checkbox) checkbox.checked = true;
+        setAvailabilityWindows(preset.windows);
+    }
+
+    function setDemoConnector(label, connected) {
+        const status = $(`demoConnectorStatus${label}`);
+        const button = $(`demoConnect${label}`);
+        if (status) {
+            status.textContent = connected ? 'Connected' : 'Not connected';
+            status.className = connected ? 'badge text-bg-success align-self-start' : 'badge text-bg-secondary align-self-start';
+        }
+        if (button) button.textContent = connected ? `Demo calendar ${label} connected` : `Connect demo calendar ${label}`;
+        try { localStorage.setItem(`demoCalendar${label}Connected`, connected ? 'true' : 'false'); } catch { }
+    }
+
+    function loadDemoConnectors() {
+        ['A', 'B'].forEach((label) => {
+            let connected = false;
+            try { connected = localStorage.getItem(`demoCalendar${label}Connected`) === 'true'; } catch { }
+            setDemoConnector(label, connected);
         });
     }
 
     async function runDemoMatching() {
         const date = $('demoDate')?.value || '2026-06-15';
+        const latestDate = $('demoLatestDate')?.value || date;
         const busyA = [{ start: `${date}T10:00:00Z`, end: `${date}T11:30:00Z` }, { start: `${date}T15:00:00Z`, end: `${date}T16:00:00Z` }];
         const busyB = [{ start: `${date}T09:30:00Z`, end: `${date}T10:30:00Z` }, { start: `${date}T13:00:00Z`, end: `${date}T14:30:00Z` }];
         if ($('demoBusyA')) $('demoBusyA').textContent = JSON.stringify(busyA, null, 2);
         if ($('demoBusyB')) $('demoBusyB').textContent = JSON.stringify(busyB, null, 2);
-        const day = (new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7;
+        const allowedWindows = convertPrefsArray(collectAvailabilityWindows('demoTimeWindowsContainer') || []);
         const res = await fetch('/api/demo/options', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-            time_min: `${date}T00:00:00Z`, time_max: `${date}T23:59:59Z`, duration_minutes: Number($('demoDuration')?.value || 30),
-            allowed_windows: [{ day, start: $('demoWindowStart')?.value || '09:00', end: $('demoWindowEnd')?.value || '18:00' }], max_options: 3, busy_a: busyA, busy_b: busyB,
+            time_min: `${date}T00:00:00Z`, time_max: `${latestDate}T23:59:59Z`, duration_minutes: Number($('demoDuration')?.value || 30),
+            allowed_windows: allowedWindows, max_options: 3, busy_a: busyA, busy_b: busyB,
         }) });
         const data = await res.json().catch(() => ({}));
         const results = $('demoResults');
@@ -608,9 +758,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function collectRequestPayload() {
-        const weekdays = Array.from(document.querySelectorAll(".weekday-input"))
+        const weekdays = Array.from(new Set(Array.from(document.querySelectorAll("#timeWindowsContainer .weekday-input"))
             .filter((input) => input.checked)
-            .map((input) => input.dataset.day);
+            .map((input) => input.dataset.day)));
         const manualEmails = ($("inviteeEmail")?.value || "").split(",").map((email) => email.trim()).filter(Boolean);
         const friendEmails = Array.from(document.querySelectorAll(".request-friend-input"))
             .filter((input) => input.checked)
@@ -630,6 +780,7 @@ document.addEventListener("DOMContentLoaded", () => {
             window_start: $("windowStart")?.value || "09:00",
             window_end: $("windowEnd")?.value || "17:00",
             allowed_weekdays: weekdays,
+            allowed_windows: convertPrefsArray(getPrefsFromTable()),
             notes: $("requestNotes")?.value || "",
         };
     }
@@ -964,8 +1115,22 @@ document.addEventListener("DOMContentLoaded", () => {
     if (addPresetBtn) addPresetBtn.onclick = addPreset;
     const sendFriendBtn = $("sendFriendBtn");
     if (sendFriendBtn) sendFriendBtn.onclick = sendFriendRequest;
+    const profileConnectA = $("profileConnectA");
+    if (profileConnectA) profileConnectA.onclick = async () => { const user = await loadCurrentUser(); if (!user) return alert("Log in before connecting calendar A"); window.location = "/oauth/start?account_label=a"; };
+    const profileConnectB = $("profileConnectB");
+    if (profileConnectB) profileConnectB.onclick = async () => { const user = await loadCurrentUser(); if (!user) return alert("Log in before connecting calendar B"); window.location = "/oauth/start?account_label=b"; };
+    const demoConnectA = $("demoConnectA");
+    if (demoConnectA) demoConnectA.onclick = () => setDemoConnector('A', true);
+    const demoConnectB = $("demoConnectB");
+    if (demoConnectB) demoConnectB.onclick = () => setDemoConnector('B', true);
     const runDemoBtn = $("runDemoBtn");
     if (runDemoBtn) runDemoBtn.onclick = runDemoMatching;
+    const addTimeWindowBtn = $("addTimeWindowBtn");
+    if (addTimeWindowBtn) addTimeWindowBtn.onclick = () => addAvailabilityWindow();
+    const demoAddTimeWindowBtn = $("demoAddTimeWindowBtn");
+    if (demoAddTimeWindowBtn) demoAddTimeWindowBtn.onclick = () => addAvailabilityWindow("demoTimeWindowsContainer", { prefix: "demoWindow" });
+    const demoPresetSelect = $("demoPresetSelect");
+    if (demoPresetSelect) demoPresetSelect.onchange = () => setAvailabilityWindows(demoPresets[demoPresetSelect.value]?.windows || [], "demoTimeWindowsContainer", { prefix: "demoWindow" });
 
     populateTimeSelects();
     setDefaultDates();
@@ -975,6 +1140,7 @@ document.addEventListener("DOMContentLoaded", () => {
     loadProfile().catch(() => { });
     loadFriends().catch(() => { });
     loadRequests().catch(() => { });
+    if ($("demoTimeWindowsContainer")) setAvailabilityWindows(demoPresets.overlap.windows, "demoTimeWindowsContainer", { prefix: "demoWindow" });
     if ($("runDemoBtn")) runDemoMatching().catch(() => { });
     loadInvitePreview().catch(() => setInviteStatus("Could not load this invite.", true));
 });

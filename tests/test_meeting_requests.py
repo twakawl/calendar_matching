@@ -30,6 +30,11 @@ class MeetingRequestApiTest(unittest.TestCase):
             "window_start": "09:00",
             "window_end": "17:00",
             "allowed_weekdays": ["Mon", "Tue", "Wed"],
+            "allowed_windows": [
+                {"day": 0, "start": "10:00", "end": "12:00"},
+                {"day": 1, "start": "10:00", "end": "12:00"},
+                {"day": 2, "start": "10:00", "end": "15:00"},
+            ],
             "notes": "Bring roadmap notes.",
         }
 
@@ -52,6 +57,14 @@ class MeetingRequestApiTest(unittest.TestCase):
         fetched = self.client.get(f"/api/requests/{body['id']}")
         self.assertEqual(fetched.status_code, 200)
         self.assertEqual(fetched.json()["allowed_weekdays"], ["Mon", "Tue", "Wed"])
+        self.assertEqual(
+            fetched.json()["allowed_windows"],
+            [
+                {"day": 0, "start": "10:00", "end": "12:00"},
+                {"day": 1, "start": "10:00", "end": "12:00"},
+                {"day": 2, "start": "10:00", "end": "15:00"},
+            ],
+        )
 
     def test_request_can_store_one_selected_owner_calendar(self):
         db = SessionLocal()

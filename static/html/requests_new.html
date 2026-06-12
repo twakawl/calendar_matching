@@ -46,20 +46,25 @@
                                 <label class="form-label" for="timezone">Timezone</label><input id="timezone" class="form-control mb-3" value="Browser timezone placeholder" aria-describedby="timezoneHelp"><div id="timezoneHelp" class="form-text mb-3">The working matcher uses UTC for now; future backend responses should include request timezone.</div>
 
                                 <h2 class="h4 mt-4">Step 3 · Availability rules</h2><label class="form-label" for="timePresetSelect">Time preset</label><div class="form-text mb-2">Your first three profile presets become quick buttons. The dropdown keeps every preset in your saved order.</div><div id="timePresetQuickButtons" class="btn-group flex-wrap mb-2" role="group" aria-label="Top three time presets"></div><select id="timePresetSelect" class="form-select mb-3"><option value="">Load profile presets…</option></select>
-                                <div class="weekday-selector mb-3" role="group" aria-label="Allowed weekdays">
-                                    <input class="btn-check weekday-input" type="checkbox" id="dayMon" data-day="Mon" checked><label class="btn btn-outline-primary" for="dayMon">Mon</label>
-                                    <input class="btn-check weekday-input" type="checkbox" id="dayTue" data-day="Tue" checked><label class="btn btn-outline-primary" for="dayTue">Tue</label>
-                                    <input class="btn-check weekday-input" type="checkbox" id="dayWed" data-day="Wed" checked><label class="btn btn-outline-primary" for="dayWed">Wed</label>
-                                    <input class="btn-check weekday-input" type="checkbox" id="dayThu" data-day="Thu" checked><label class="btn btn-outline-primary" for="dayThu">Thu</label>
-                                    <input class="btn-check weekday-input" type="checkbox" id="dayFri" data-day="Fri" checked><label class="btn btn-outline-primary" for="dayFri">Fri</label>
-                                    <input class="btn-check weekday-input" type="checkbox" id="daySat" data-day="Sat"><label class="btn btn-outline-primary" for="daySat">Sat</label>
-                                    <input class="btn-check weekday-input" type="checkbox" id="daySun" data-day="Sun"><label class="btn btn-outline-primary" for="daySun">Sun</label>
+                                <div id="timeWindowsContainer" class="d-grid gap-3" aria-label="Availability time windows">
+                                    <div class="availability-window border rounded-4 p-3" data-window-index="0">
+                                        <div class="d-flex justify-content-between align-items-center gap-2 mb-2"><h3 class="h6 mb-0">Time set 1</h3><span class="badge text-bg-light">Shared days and timing</span></div>
+                                        <div class="weekday-selector mb-3" role="group" aria-label="Allowed weekdays for time set 1">
+                                            <input class="btn-check weekday-input" type="checkbox" id="dayMon" data-day="Mon" checked><label class="btn btn-outline-primary" for="dayMon">Mon</label>
+                                            <input class="btn-check weekday-input" type="checkbox" id="dayTue" data-day="Tue" checked><label class="btn btn-outline-primary" for="dayTue">Tue</label>
+                                            <input class="btn-check weekday-input" type="checkbox" id="dayWed" data-day="Wed" checked><label class="btn btn-outline-primary" for="dayWed">Wed</label>
+                                            <input class="btn-check weekday-input" type="checkbox" id="dayThu" data-day="Thu" checked><label class="btn btn-outline-primary" for="dayThu">Thu</label>
+                                            <input class="btn-check weekday-input" type="checkbox" id="dayFri" data-day="Fri" checked><label class="btn btn-outline-primary" for="dayFri">Fri</label>
+                                            <input class="btn-check weekday-input" type="checkbox" id="daySat" data-day="Sat"><label class="btn btn-outline-primary" for="daySat">Sat</label>
+                                            <input class="btn-check weekday-input" type="checkbox" id="daySun" data-day="Sun"><label class="btn btn-outline-primary" for="daySun">Sun</label>
+                                        </div>
+                                        <div class="row g-3">
+                                            <div class="col-6"><label class="form-label" for="windowStart">Between</label><input id="windowStart" type="time" class="form-control window-start" value="09:00"></div>
+                                            <div class="col-6"><label class="form-label" for="windowEnd">And</label><input id="windowEnd" type="time" class="form-control window-end" value="17:00"></div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="row g-3">
-                                    <div class="col-6"><label class="form-label" for="windowStart">Between</label><input id="windowStart" type="time" class="form-control" value="09:00"></div>
-                                    <div class="col-6"><label class="form-label" for="windowEnd">And</label><input id="windowEnd" type="time" class="form-control" value="17:00"></div>
-                                </div>
-                                <button class="btn btn-link px-0 mt-2 disabled" type="button" aria-disabled="true">+ Add another time window placeholder</button>
+                                <button class="btn btn-link px-0 mt-2" id="addTimeWindowBtn" type="button">+ Add another time</button>
                             </div>
                         </div>
 

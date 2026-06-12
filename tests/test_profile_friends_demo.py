@@ -29,6 +29,7 @@ class ProfileFriendsDemoTest(unittest.TestCase):
         payload["phone_number"] = "+31612345678"
         payload["timezone_preference"] = "Europe/Amsterdam"
         payload["linked_calendar_label"] = "a"
+        payload["linked_calendar_labels"] = ["a", "b"]
         payload["time_presets"] = [
             {
                 "id": "custom-lunch",
@@ -43,6 +44,8 @@ class ProfileFriendsDemoTest(unittest.TestCase):
         self.assertEqual(body["display_name"], "Updated User")
         self.assertEqual(body["phone_number"], "+31612345678")
         self.assertEqual(body["timezone_preference"], "Europe/Amsterdam")
+        self.assertEqual(body["linked_calendar_label"], "a")
+        self.assertEqual(body["linked_calendar_labels"], ["a", "b"])
         self.assertEqual(body["time_presets"][0]["id"], "custom-lunch")
 
     def test_friend_request_can_be_sent_and_accepted_by_email(self):
