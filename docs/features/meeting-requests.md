@@ -40,9 +40,9 @@ A logged-in user can create a meeting request and invite another user through a 
 - As a requesting user, I can send a link to one or more users.
 - As a requesting user, I can add accepted friends or email invitees to a request.
 - As an invited user, I can open the link and log in to continue.
-- As an invited user, I can accept or decline the request.
-- As an invited user, I can select an already linked calendar or connect Google Calendar while staying in the received request flow.
-- As both users, we can see the current request status.
+- As an invited user, I can accept or decline the request, while the sender does not see an accept action for their own invitation.
+- As an invited user, I can select an already linked calendar or connect Google Calendar while staying in the received request flow, and that connection is saved for reuse.
+- As both users, we can see the current request status and delete a visible request after confirming.
 
 ## Acceptance criteria
 
@@ -65,8 +65,8 @@ A logged-in user can create a meeting request and invite another user through a 
 - The FastAPI prototype now persists requester-owned request records in local SQLite through `/api/requests`.
 - New requests generate hard-to-guess invite tokens, store only token hashes plus expirations, and return the raw invite URL only at creation/regeneration time.
 - The authenticated `/requests/new` page can save a request with title, multiple invitee emails, accepted friend selections, duration, date range, selected profile calendar account, selected weekdays, one or more grouped time-window sets, timezone, ordered time-preset choice, and notes.
-- The authenticated `/dashboard` page loads requests visible to the requester or accepted invitee from SQLite and can regenerate invite links.
-- The public `/invite/{token}` page resolves only non-sensitive request details, then lets the matching logged-in invitee accept or decline and choose an existing linked calendar or start Google OAuth for the same request.
+- The authenticated `/dashboard` page loads requests visible to the requester or invitee, shows accept only to the invited recipient, can regenerate invite links for senders, and lets visible users delete a request after confirmation.
+- The public `/invite/{token}` page resolves only non-sensitive request details, then lets the matching logged-in invitee accept or decline and choose an existing linked calendar or start Google OAuth for the same request; newly connected Google calendars are stored on the profile and can be reused.
 - Request access checks now allow only the requester, invitee email, or accepted invitee user to fetch request details after authentication.
 - Request lifecycle audit events are recorded for creation, invite generation, opening, acceptance, decline, calendar selection, and request-scoped calendar connection.
 - Remaining future work: normalized participant rows, participant-specific calendar readiness for every invitee, secure email delivery, richer lifecycle transitions, and persistent proposed options.
@@ -75,7 +75,7 @@ A logged-in user can create a meeting request and invite another user through a 
 
 - The request creation page uses a step-based card so basics, participants, dates, and rules are easier to scan.
 - The three highest-priority time presets are exposed as quick buttons, while every ordered profile preset remains available in a dropdown; presets with different timings are grouped into separate day/time sets.
-- The primary action is visually emphasized as **Find best options**; saving the SQLite draft remains available as a secondary action.
+- The primary action is visually emphasized as **Find best options**; saving the request remains available as a secondary action.
 - Multiple typed invitee emails and accepted friend selections are combined into the request payload.
 - Top-three option cards appear before the detailed availability grid so users first see the product's main recommendation.
 

@@ -983,14 +983,14 @@ def _serve_authenticated_html(request: Request, filename: str) -> HTMLResponse:
 
 
 def _not_implemented_page(feature_name: str) -> HTMLResponse:
-    """Render an app-style placeholder for planned functionality."""
+    """Render an app-style coming-soon page for planned functionality."""
     safe_feature_name = feature_name.replace("<", "&lt;").replace(">", "&gt;")
     content = f"""<!doctype html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{safe_feature_name} not implemented · Calendar Matching</title>
+    <title>{safe_feature_name} coming soon · Calendar Matching</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
@@ -1000,9 +1000,9 @@ def _not_implemented_page(feature_name: str) -> HTMLResponse:
     <main class="container py-5 py-lg-6">
         <div class="row justify-content-center"><div class="col-lg-8 col-xl-7">
             <div class="auth-card card shadow-lg rounded-5 border-0"><div class="card-body p-4 p-lg-5 text-center">
-                <p class="text-uppercase small fw-semibold text-primary mb-2">Planned functionality</p>
-                <h1 class="display-6 fw-bold mb-3">{safe_feature_name} is not implemented yet.</h1>
-                <p class="lead text-secondary">This page is a safe placeholder so unfinished Google, Microsoft, and other future actions do not fail silently.</p>
+                <p class="text-uppercase small fw-semibold text-primary mb-2">Coming soon</p>
+                <h1 class="display-6 fw-bold mb-3">{safe_feature_name} is not ready yet.</h1>
+                <p class="lead text-secondary">We are still shaping this experience. You can go back and keep using the available scheduling tools.</p>
                 <div class="d-flex flex-column flex-sm-row gap-2 justify-content-center mt-4">
                     <a class="btn btn-primary btn-lg" href="/">Back to home</a>
                     <button class="btn btn-outline-primary btn-lg" type="button" onclick="history.back()">Back to previous page</button>
@@ -1536,6 +1536,48 @@ async def get_meeting_request(
         db.close()
 
 
+@app.post("/api/requests/{request_id}/accept", response_model=MeetingRequestResponse, tags=["Meeting requests"])
+async def accept_visible_request(
+    request_id: str, current_user: User = Depends(require_current_user)
+):
+    """Accept a visible meeting request when it is addressed to the current user."""
+    db = SessionLocal()
+    try:
+        record = _get_visible_request_or_404(db, request_id, current_user)
+        if record.owner_user_id == current_user.id or current_user.email not in _invitee_emails_for(record):
+            raise HTTPException(status_code=403, detail="This request is for a different invitee")
+        if record.invite_declined_at:
+            raise HTTPException(status_code=400, detail="This request was already declined")
+        now = datetime.utcnow()
+        record.invitee_user_id = current_user.id
+        record.invite_accepted_at = now
+        record.status = "ready_for_matching" if record.owner_calendar_label and record.invitee_calendar_label else "awaiting_calendar_connection"
+        record.updated_at = now
+        _audit_event(db, record.id, "accepted", current_user.id)
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+        return _meeting_request_response(record)
+    finally:
+        db.close()
+
+
+@app.delete("/api/requests/{request_id}", status_code=204, tags=["Meeting requests"])
+async def delete_meeting_request(
+    request_id: str, current_user: User = Depends(require_current_user)
+):
+    """Delete a meeting request that is visible to the current requester or invitee."""
+    db = SessionLocal()
+    try:
+        record = _get_visible_request_or_404(db, request_id, current_user)
+        db.query(RequestAuditEvent).filter_by(request_id=record.id).delete()
+        db.delete(record)
+        db.commit()
+        return Response(status_code=204)
+    finally:
+        db.close()
+
+
 @app.post("/api/requests/{request_id}/calendar", response_model=MeetingRequestResponse, tags=["Meeting requests"])
 async def select_request_calendar(
     request_id: str,
@@ -1781,6 +1823,25 @@ async def accept_friend_request(friend_request_id: str, current_user: User = Dep
         db.close()
 
 
+@app.delete("/api/friends/{friend_request_id}", status_code=204, tags=["Friends"])
+async def delete_friend_request(friend_request_id: str, current_user: User = Depends(require_current_user)):
+    """Delete a friend request visible to the current sender or receiver."""
+    db = SessionLocal()
+    try:
+        record = db.query(FriendRequest).filter_by(id=friend_request_id).first()
+        if not record or not (
+            record.requester_user_id == current_user.id
+            or record.recipient_email == current_user.email
+            or record.recipient_user_id == current_user.id
+        ):
+            raise HTTPException(status_code=404, detail="Friend request not found")
+        db.delete(record)
+        db.commit()
+        return Response(status_code=204)
+    finally:
+        db.close()
+
+
 @app.post("/api/demo/options", response_model=MatchingOptionsResponse, tags=["Matching"])
 async def demo_matching_options(request: DemoMatchingRequest):
     """Run matching against two demo calendars, separate from personal connections."""
@@ -1820,6 +1881,10 @@ async def oauth_start(
     request_id: Optional[str] = Query(
         default=None,
         description="Visible meeting request to mark ready when this calendar connects",
+    ),
+    return_to: Optional[str] = Query(
+        default=None,
+        description="In-app page to open after the calendar is connected",
     ),
     current_user: User = Depends(require_current_user),
 ):
@@ -2011,8 +2076,8 @@ async def oauth_callback(code: str = Query(...), state: str = Query(...)):
         finally:
             db.close()
 
-        # Redirect back to the profile page so users manage all calendar accounts there.
-        redirect_url = f"/profile?account_label={account_label}&email={email}"
+        separator = "&" if "?" in return_path else "?"
+        redirect_url = f"{return_path}{separator}account_label={account_label}&email={email}"
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:

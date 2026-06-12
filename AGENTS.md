@@ -45,6 +45,7 @@ Build toward these major capabilities:
 - Keep business logic independent from concrete persistence implementations so SQLite and Azure SQL support remain practical.
 - Keep calendar-provider logic behind interfaces so Google and Microsoft providers can share app workflows.
 - Always update `README.md`, relevant feature docs, and any other affected `.md` documentation on every update, even for small UI or behavior changes.
+- Always write user-facing instructions in human-centered language. Avoid implementation jargon such as prototype, SQLite, JSON, debug data, or not-implemented labels unless the text is for developer-only documentation.
 
 ## Testing
 

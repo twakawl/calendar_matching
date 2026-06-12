@@ -25,9 +25,9 @@ The setup instructions that are needed for the current prototype are included be
 ## Implemented features
 
 - First-party registration, standalone login, logout, HTTP-only session cookies, bearer-token API sessions, an inline register warning for unknown login emails, and app-style placeholder pages for future Google/Microsoft app-login.
-- Dedicated registration page with email/password prefill from an unknown-email login attempt, default display name from the email local part, plus editable personal profile with display name, phone number, timezone preference, multiple linked calendar accounts, provider choices, and ordered time presets.
-- Friends page with email-based friend requests, acceptance, and contact-import placeholder links for Gmail, Apple, Microsoft, and Android.
-- OAuth 2.0 Web Server Flow for multiple Google Calendar accounts tied to the logged-in user profile; Microsoft and Apple appear as not-connected provider placeholders, and users can submit a new-platform request from Profile.
+- Dedicated registration page with email/password prefill from an unknown-email login attempt, default display name from the email local part, plus editable personal profile with display name, phone number, timezone preference, multiple linked calendar accounts, provider choices, and ordered multi-block time presets.
+- Friends page with email-based friend requests, recipient-only acceptance, delete controls with confirmation, and contact-import placeholder links for Gmail, Apple, Microsoft, and Android.
+- OAuth 2.0 Web Server Flow for multiple Google Calendar accounts tied to the logged-in user profile; request creation and invite flows can connect Google Calendar and then reuse that saved connection in later requests.
 - Offline access with refresh token storage.
 - Fernet encryption for stored refresh tokens.
 - SQLite-backed `users`, `user_sessions`, `oauth_states`, user-owned `google_accounts`, `meeting_requests`, and `request_audit_events` records.
@@ -35,7 +35,7 @@ The setup instructions that are needed for the current prototype are included be
 - Google Calendar free/busy reads for primary calendars only; event titles, descriptions, attendees, and locations are not fetched.
 - Combined busy-block response for a selected profile calendar account plus another connected participant calendar in the current prototype.
 - MVP matching endpoint that returns the top three non-overlapping meeting options from duration, weekday, one-or-more allowed time-window sets, and busy-block constraints.
-- Bootstrap-based multi-page frontend with a public informational home page, polished login/register screens, a clear top navigation bar with personal dropdown menu, authenticated dashboard, account/calendar connection cards, profile and friends pages, SQLite-backed multi-invitee request creation/listing, secure invite preview with accept/decline actions, request-detail placeholders, responsive availability preview, a public demo request, and live top-three matching cards backed by the existing Google free/busy prototype.
+- Bootstrap-based multi-page frontend with a public informational home page, polished login/register screens, a clear top navigation bar with personal dropdown menu, authenticated dashboard, account/calendar connection cards, profile and friends pages, multi-invitee request creation/listing, recipient-only request acceptance, delete controls with confirmation, secure invite preview with accept/decline actions, request-detail placeholders, responsive availability preview, a public demo request, and live top-three matching cards backed by Google free/busy reads.
 - Automatic access-token refresh before Calendar API calls.
 
 ## Future implementation scope
