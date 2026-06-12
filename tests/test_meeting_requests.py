@@ -5,7 +5,7 @@ import uuid
 
 from fastapi.testclient import TestClient
 
-from app import RequestAuditEvent, SessionLocal, app
+from app import GoogleAccount, RequestAuditEvent, SessionLocal, User, app
 
 
 class MeetingRequestApiTest(unittest.TestCase):
@@ -65,6 +65,68 @@ class MeetingRequestApiTest(unittest.TestCase):
                 {"day": 2, "start": "10:00", "end": "15:00"},
             ],
         )
+
+    def test_request_can_store_one_selected_owner_calendar(self):
+        db = SessionLocal()
+        try:
+            owner = db.query(User).filter_by(email=self.email).one()
+            db.add(
+                GoogleAccount(
+                    account_label=f"user:{owner.id}:a",
+                    owner_user_id=owner.id,
+                    google_sub=f"google-{uuid.uuid4().hex}",
+                    email="owner-calendar@example.com",
+                    refresh_token="encrypted-placeholder",
+                )
+            )
+            db.commit()
+        finally:
+            db.close()
+
+        payload = self.request_payload()
+        payload["owner_calendar_label"] = "a"
+        created = self.client.post("/api/requests", json=payload)
+
+        self.assertEqual(created.status_code, 200)
+        self.assertEqual(created.json()["owner_calendar_label"], "a")
+        self.assertIsNone(created.json()["invitee_calendar_label"])
+
+    def test_invitee_can_select_calendar_on_received_request(self):
+        created = self.client.post("/api/requests", json=self.request_payload()).json()
+        token = created["invite_url"].rsplit("/", 1)[-1]
+
+        invitee_client = TestClient(app)
+        invitee_client.post(
+            "/auth/register",
+            json={"email": self.invitee_email, "password": self.password},
+        )
+        accepted = invitee_client.post(f"/api/invites/{token}/accept")
+        self.assertEqual(accepted.status_code, 200)
+
+        db = SessionLocal()
+        try:
+            invitee = db.query(User).filter_by(email=self.invitee_email).one()
+            db.add(
+                GoogleAccount(
+                    account_label=f"user:{invitee.id}:b",
+                    owner_user_id=invitee.id,
+                    google_sub=f"google-{uuid.uuid4().hex}",
+                    email="invitee-calendar@example.com",
+                    refresh_token="encrypted-placeholder",
+                )
+            )
+            db.commit()
+        finally:
+            db.close()
+
+        selected = invitee_client.post(
+            f"/api/requests/{created['id']}/calendar",
+            json={"calendar_label": "b"},
+        )
+
+        self.assertEqual(selected.status_code, 200)
+        self.assertEqual(selected.json()["invitee_calendar_label"], "b")
+        self.assertEqual(selected.json()["status"], "awaiting_calendar_connection")
 
     def test_invite_preview_accept_and_audit_flow(self):
         created = self.client.post("/api/requests", json=self.request_payload()).json()

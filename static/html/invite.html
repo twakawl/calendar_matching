@@ -29,8 +29,19 @@
                             </ul>
                             <div class="privacy-note p-3 rounded-4 mb-4">🔒 To find shared times, connect your calendar. The requester will only see busy/free blocks, not event details.</div>
                             <div class="d-grid gap-2 d-sm-flex">
-                                <button class="btn btn-primary btn-lg flex-fill" id="acceptInviteBtn" type="button">Accept and continue</button>
+                                <button class="btn btn-primary btn-lg flex-fill" id="acceptInviteBtn" type="button">Accept and choose calendar</button>
                                 <button class="btn btn-outline-secondary btn-lg flex-fill" id="declineInviteBtn" type="button">Decline</button>
+                            </div>
+                            <div id="inviteCalendarPanel" class="border rounded-4 p-3 mt-4 d-none">
+                                <h2 class="h5">Use one linked calendar for this request</h2>
+                                <p class="small text-secondary">After accepting, select an existing calendar connection or connect Google Calendar directly for this request.</p>
+                                <label class="form-label" for="inviteCalendarSelect">Linked calendars</label>
+                                <select id="inviteCalendarSelect" class="form-select mb-2"><option value="">Log in and accept to load calendars…</option></select>
+                                <div class="d-grid gap-2 d-sm-flex">
+                                    <button class="btn btn-success flex-fill" id="selectInviteCalendarBtn" type="button">Use selected calendar</button>
+                                    <button class="btn btn-outline-primary flex-fill" id="connectInviteCalendarBtn" type="button">Connect Google Calendar</button>
+                                </div>
+                                <div id="inviteCalendarStatus" class="small text-secondary mt-2" aria-live="polite"></div>
                             </div>
                             <hr class="my-4">
                             <p class="small text-secondary mb-0">This page resolves only non-sensitive request details from a hashed, expiring invite token before the invitee accepts.</p>
