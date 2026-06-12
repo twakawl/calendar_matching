@@ -17,8 +17,8 @@ class UiFunctionalityContractTest(unittest.TestCase):
         self.assertIn('id="profileLinkedCalendarList"', profile_html)
         self.assertIn('id="profileConnectGoogle"', profile_html)
         self.assertIn('id="platformRequestForm"', profile_html)
-        self.assertIn('Microsoft · not connected', profile_html)
-        self.assertIn('Apple · not connected', profile_html)
+        self.assertIn('Microsoft · coming soon', profile_html)
+        self.assertIn('Apple · coming soon', profile_html)
         self.assertNotIn('id="authA"', account_html)
         self.assertNotIn('id="authB"', account_html)
 
@@ -75,10 +75,11 @@ class UiFunctionalityContractTest(unittest.TestCase):
         self.assertIn('const pairUrl = `/pair?time_min=${encodeURIComponent(timeMin)}', app_js)
         self.assertIn('fetch(pairUrl)', app_js)
         self.assertIn('fetch("/matching/options"', app_js)
-        self.assertIn('window.location = "/oauth/start"', app_js)
+        self.assertIn('window.location = "/oauth/start?return_to=/profile"', app_js)
+        self.assertIn('window.location = "/oauth/start?return_to=/requests/new"', app_js)
         self.assertIn('account_label: selectedAccountLabel', app_js)
         self.assertIn('setAvailabilityWindows(preset.windows)', app_js)
-        self.assertIn("collectAvailabilityWindows('demoTimeWindowsContainer')", app_js)
+        self.assertIn('allowed_windows: [{ day, start:', app_js)
 
     def test_not_implemented_pages_keep_navigation_contract(self):
         """Placeholder feature pages must provide home and previous-page actions."""
@@ -87,6 +88,7 @@ class UiFunctionalityContractTest(unittest.TestCase):
         self.assertIn('/not-implemented/{feature_slug}', app_py)
         self.assertIn('Back to home', app_py)
         self.assertIn('Back to previous page', app_py)
+        self.assertIn('coming soon', app_py)
 
         login_html = (HTML_DIR / "login.html").read_text()
         account_html = (HTML_DIR / "account.html").read_text()

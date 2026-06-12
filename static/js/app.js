@@ -1,4 +1,4 @@
-// Frontend behavior for the Calendar Matching prototype UI.
+// Frontend behavior for the Calendar Matching app UI.
 document.addEventListener("DOMContentLoaded", () => {
     let currentDisplayDate = null;
     let busyDataA = { busy: [] };
@@ -330,7 +330,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             <span class="badge ${badge}">${label}</span>
                             <h3 class="h5 mt-3">${escapeHtml(day)}</h3>
                             <p class="fs-5 fw-semibold mb-1">${escapeHtml(startTime)}–${escapeHtml(endTime)}</p>
-                            <p class="small text-secondary">UTC / browser display placeholder</p>
+                            <p class="small text-secondary">Shown in your browser timezone</p>
                             <p class="small">${escapeHtml(reason)}</p>
                             <button class="btn ${index === 0 ? "btn-success" : "btn-outline-primary"} w-100" type="button">Choose this option</button>
                         </div>
@@ -452,22 +452,25 @@ document.addEventListener("DOMContentLoaded", () => {
         if (emails) emails.innerHTML = "";
         list.forEach((acc) => showEmail(acc.account_label, acc.email));
 
-        const requestAccountSelect = $("requestAccountSelect");
-        if (!requestAccountSelect) return;
+        const calendarSelects = ["requestAccountSelect", "requestOwnerCalendar", "inviteCalendarSelect"]
+            .map((id) => $(id))
+            .filter(Boolean);
+        if (calendarSelects.length === 0) return;
 
-        requestAccountSelect.innerHTML = "";
-        if (list.length === 0) {
-            requestAccountSelect.innerHTML = '<option value="">No connected accounts yet</option>';
-            return;
-        }
-
-        list.forEach((acc) => {
-            const opt = document.createElement("option");
-            opt.value = acc.account_label;
-            opt.textContent = acc.email;
-            requestAccountSelect.appendChild(opt);
+        calendarSelects.forEach((select) => {
+            select.innerHTML = "";
+            if (list.length === 0) {
+                select.innerHTML = '<option value="">No connected calendars yet</option>';
+                return;
+            }
+            list.forEach((acc) => {
+                const opt = document.createElement("option");
+                opt.value = acc.account_label;
+                opt.textContent = acc.email;
+                select.appendChild(opt);
+            });
+            if (profileLinkedCalendarLabels[0]) select.value = profileLinkedCalendarLabels[0];
         });
-        if (profileLinkedCalendarLabels[0]) requestAccountSelect.value = profileLinkedCalendarLabels[0];
     }
 
 
@@ -521,47 +524,45 @@ document.addEventListener("DOMContentLoaded", () => {
         renderRequestPresetControls(profilePresets);
     }
 
-    function selectedWindowDays(preset) {
-        return new Set((preset.windows || []).map((window) => Number(window.day)));
-    }
-
-    function firstPresetWindow(preset) {
-        return (preset.windows || [])[0] || { day: 0, start: '09:00', end: '17:00' };
+    function presetWindowTemplate(presetIndex, windowIndex, window = {}) {
+        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const selectedDay = Number.isInteger(Number(window.day)) ? Number(window.day) : 0;
+        const dayOptions = dayNames.map((name, day) => `<option value="${day}" ${selectedDay === day ? 'selected' : ''}>${name}</option>`).join('');
+        const removeButton = windowIndex > 0 ? '<button class="btn btn-outline-danger btn-sm preset-window-remove" type="button" aria-label="Remove this time block">×</button>' : '<span class="badge text-bg-light">Time block</span>';
+        return `<div class="preset-window border rounded-4 p-3" data-window-index="${windowIndex}">
+            <div class="d-flex justify-content-between align-items-center gap-2 mb-3"><h4 class="h6 mb-0">Time block ${windowIndex + 1}</h4>${removeButton}</div>
+            <div class="row g-3">
+                <div class="col-md-4"><label class="form-label small" for="presetDay-${presetIndex}-${windowIndex}">Day</label><select id="presetDay-${presetIndex}-${windowIndex}" class="form-select preset-window-day">${dayOptions}</select></div>
+                <div class="col-md-4"><label class="form-label small" for="presetStart-${presetIndex}-${windowIndex}">From</label><input id="presetStart-${presetIndex}-${windowIndex}" type="time" class="form-control preset-window-start" value="${escapeHtml(window.start || '09:00')}"></div>
+                <div class="col-md-4"><label class="form-label small" for="presetEnd-${presetIndex}-${windowIndex}">Until</label><input id="presetEnd-${presetIndex}-${windowIndex}" type="time" class="form-control preset-window-end" value="${escapeHtml(window.end || '17:00')}"></div>
+            </div>
+        </div>`;
     }
 
     function syncPresetFromCard(card, index) {
-        const start = card.querySelector('.preset-start')?.value || '09:00';
-        const end = card.querySelector('.preset-end')?.value || '17:00';
-        const days = Array.from(card.querySelectorAll('.preset-day-input'))
-            .filter((input) => input.checked)
-            .map((input) => Number(input.value));
-        profilePresets[index].windows = days.map((day) => ({ day, start, end }));
+        profilePresets[index].name = card.querySelector('.preset-name')?.value || 'Custom preset';
+        profilePresets[index].windows = Array.from(card.querySelectorAll('.preset-window')).map((windowEl) => ({
+            day: Number(windowEl.querySelector('.preset-window-day')?.value || 0),
+            start: windowEl.querySelector('.preset-window-start')?.value || '09:00',
+            end: windowEl.querySelector('.preset-window-end')?.value || '17:00',
+        })).filter((window) => window.start < window.end);
         const summary = card.querySelector('.preset-summary');
-        if (summary) summary.textContent = presetToText(profilePresets[index]) || 'Select at least one day.';
+        if (summary) summary.textContent = presetToText(profilePresets[index]) || 'Add at least one time block.';
     }
 
     function renderPresetList() {
         const list = $('presetList');
         if (!list) return;
-        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         list.innerHTML = profilePresets.map((preset, index) => {
-            const selectedDays = selectedWindowDays(preset);
-            const firstWindow = firstPresetWindow(preset);
-            const dayButtons = dayNames.map((name, day) => `
-                <input class="btn-check preset-day-input" type="checkbox" id="preset-${index}-day-${day}" value="${day}" ${selectedDays.has(day) ? 'checked' : ''}>
-                <label class="btn btn-outline-primary btn-sm" for="preset-${index}-day-${day}">${name}</label>`).join('');
+            const windows = (preset.windows && preset.windows.length ? preset.windows : [{ day: 0, start: '09:00', end: '17:00' }]);
             return `<div class="preset-card border rounded-4 p-3" data-index="${index}">
                 <div class="d-flex justify-content-between gap-2 align-items-start">
                     <div class="flex-grow-1">
                         <label class="form-label small" for="presetName-${index}">Preset name</label>
                         <input id="presetName-${index}" class="form-control preset-name" value="${escapeHtml(preset.name)}">
-                        <label class="form-label small mt-3">Selectable days</label>
-                        <div class="weekday-selector preset-weekday-selector mb-3" role="group" aria-label="Preset weekdays">${dayButtons}</div>
-                        <div class="row g-3">
-                            <div class="col-sm-6"><label class="form-label small" for="presetStart-${index}">Between</label><input id="presetStart-${index}" type="time" class="form-control preset-start" value="${escapeHtml(firstWindow.start)}"></div>
-                            <div class="col-sm-6"><label class="form-label small" for="presetEnd-${index}">And</label><input id="presetEnd-${index}" type="time" class="form-control preset-end" value="${escapeHtml(firstWindow.end)}"></div>
-                        </div>
-                        <p class="small text-secondary mt-2 mb-0 preset-summary">${escapeHtml(presetToText(preset) || 'Select at least one day.')}</p>
+                        <div class="preset-window-list d-grid gap-2 mt-3">${windows.map((window, windowIndex) => presetWindowTemplate(index, windowIndex, window)).join('')}</div>
+                        <button class="btn btn-link px-0 preset-window-add" type="button">+ Add another time block</button>
+                        <p class="small text-secondary mt-2 mb-0 preset-summary">${escapeHtml(presetToText(preset) || 'Add at least one time block.')}</p>
                     </div>
                     <div class="btn-group-vertical">
                         <button class="btn btn-outline-secondary btn-sm preset-up" type="button">↑</button>
@@ -573,10 +574,12 @@ document.addEventListener("DOMContentLoaded", () => {
         }).join('');
         list.querySelectorAll('.preset-card').forEach((card) => {
             const index = Number(card.dataset.index);
-            card.querySelector('.preset-name').addEventListener('input', (event) => { profilePresets[index].name = event.target.value; });
-            card.querySelectorAll('.preset-day-input, .preset-start, .preset-end').forEach((input) => input.addEventListener('change', () => syncPresetFromCard(card, index)));
-            card.querySelector('.preset-up').addEventListener('click', () => { if (index > 0) { [profilePresets[index - 1], profilePresets[index]] = [profilePresets[index], profilePresets[index - 1]]; renderPresetList(); } });
-            card.querySelector('.preset-down').addEventListener('click', () => { if (index < profilePresets.length - 1) { [profilePresets[index + 1], profilePresets[index]] = [profilePresets[index], profilePresets[index + 1]]; renderPresetList(); } });
+            card.querySelector('.preset-name').addEventListener('input', () => syncPresetFromCard(card, index));
+            card.querySelectorAll('.preset-window-day, .preset-window-start, .preset-window-end').forEach((input) => input.addEventListener('change', () => syncPresetFromCard(card, index)));
+            card.querySelectorAll('.preset-window-remove').forEach((button) => button.addEventListener('click', () => { button.closest('.preset-window')?.remove(); syncPresetFromCard(card, index); renderPresetList(); }));
+            card.querySelector('.preset-window-add').addEventListener('click', () => { syncPresetFromCard(card, index); profilePresets[index].windows.push({ day: 5, start: '10:00', end: '18:00' }); renderPresetList(); });
+            card.querySelector('.preset-up').addEventListener('click', () => { syncPresetFromCard(card, index); if (index > 0) { [profilePresets[index - 1], profilePresets[index]] = [profilePresets[index], profilePresets[index - 1]]; renderPresetList(); } });
+            card.querySelector('.preset-down').addEventListener('click', () => { syncPresetFromCard(card, index); if (index < profilePresets.length - 1) { [profilePresets[index + 1], profilePresets[index]] = [profilePresets[index], profilePresets[index + 1]]; renderPresetList(); } });
             card.querySelector('.preset-remove').addEventListener('click', () => { profilePresets.splice(index, 1); renderPresetList(); });
         });
     }
@@ -632,12 +635,18 @@ document.addEventListener("DOMContentLoaded", () => {
             list.innerHTML = '<div class="empty-state"><h2 class="h4">No friends yet</h2><p class="text-secondary">Send a request by email to start building your friend list.</p></div>';
             return;
         }
-        list.innerHTML = friends.map((friend) => `
-            <div class="card rounded-4 shadow-sm"><div class="card-body p-4">
-                <div class="d-flex justify-content-between gap-3"><div><h2 class="h5">${escapeHtml(friend.requester_email)} → ${escapeHtml(friend.recipient_email)}</h2><p class="mb-0 text-secondary">Status: ${escapeHtml(friend.status)}</p></div><span class="badge text-bg-secondary align-self-start">${escapeHtml(friend.status)}</span></div>
-                ${friend.status === 'pending' ? `<button class="btn btn-outline-primary mt-3 accept-friend" data-id="${friend.id}" type="button">Accept if this is for you</button>` : ''}
-            </div></div>`).join('');
+        const ownEmail = currentUser?.email || '';
+        list.innerHTML = friends.map((friend) => {
+            const isReceiver = friend.recipient_email === ownEmail;
+            const otherPerson = friend.requester_email === ownEmail ? friend.recipient_email : friend.requester_email;
+            const statusText = friend.status === 'pending' ? (isReceiver ? 'Waiting for your answer' : 'Invitation sent') : 'Friends';
+            return `<div class="card rounded-4 shadow-sm position-relative"><button class="btn btn-sm btn-light border delete-card-btn delete-friend" data-id="${friend.id}" type="button" aria-label="Delete friend request">×</button><div class="card-body p-4 pe-5">
+                <div class="d-flex justify-content-between gap-3"><div><h2 class="h5">${escapeHtml(otherPerson)}</h2><p class="mb-0 text-secondary">${escapeHtml(statusText)}</p></div><span class="badge text-bg-secondary align-self-start">${escapeHtml(friend.status)}</span></div>
+                ${friend.status === 'pending' && isReceiver ? `<button class="btn btn-outline-primary mt-3 accept-friend" data-id="${friend.id}" type="button">Accept friend request</button>` : ''}
+            </div></div>`;
+        }).join('');
         list.querySelectorAll('.accept-friend').forEach((button) => button.addEventListener('click', () => acceptFriend(button.dataset.id)));
+        list.querySelectorAll('.delete-friend').forEach((button) => button.addEventListener('click', () => deleteFriendRequest(button.dataset.id)));
     }
 
     async function sendFriendRequest() {
@@ -655,6 +664,24 @@ document.addEventListener("DOMContentLoaded", () => {
     async function acceptFriend(id) {
         await fetch(`/api/friends/${encodeURIComponent(id)}/accept`, { method: 'POST' });
         loadFriends();
+    }
+
+    async function deleteFriendRequest(id) {
+        if (!window.confirm('Delete this friend request?')) return;
+        await fetch(`/api/friends/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        loadFriends();
+    }
+
+    async function acceptVisibleRequest(requestId) {
+        const res = await fetch(`/api/requests/${encodeURIComponent(requestId)}/accept`, { method: 'POST' });
+        if (!res.ok) alert('Could not accept this request. Open the invite link from the sender if this keeps happening.');
+        loadRequests();
+    }
+
+    async function deleteMeetingRequest(requestId) {
+        if (!window.confirm('Delete this meeting request?')) return;
+        await fetch(`/api/requests/${encodeURIComponent(requestId)}`, { method: 'DELETE' });
+        loadRequests();
     }
 
     function renderRequestPresetControls(presets) {
@@ -686,10 +713,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (button) button.textContent = connected ? `Reconnect Google calendar ${label}` : `Connect Google calendar ${label}`;
         const busyEl = $(`demoBusy${label}`);
         if (busyEl && !connected) {
-            busyEl.textContent = 'Connect this Google calendar to load its free/busy registry.';
+            busyEl.textContent = 'Connect this Google calendar to include its availability.';
         }
         if (busyEl && connected) {
-            busyEl.textContent = JSON.stringify({ connector: `Google Calendar ${label}`, email: account.email, busy: [] }, null, 2);
+            busyEl.textContent = `${account.email} is connected. Availability will be checked when you run matching.`;
         }
     }
 
@@ -741,8 +768,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const busyA = await busyARes.json().catch(() => ({}));
         const busyB = await busyBRes.json().catch(() => ({}));
         const data = await optionsRes.json().catch(() => ({}));
-        if ($('demoBusyA')) $('demoBusyA').textContent = JSON.stringify({ connector: 'Google Calendar A', email: busyA.email || accounts.a.email, busy: busyA.busy || [] }, null, 2);
-        if ($('demoBusyB')) $('demoBusyB').textContent = JSON.stringify({ connector: 'Google Calendar B', email: busyB.email || accounts.b.email, busy: busyB.busy || [] }, null, 2);
+        if ($('demoBusyA')) $('demoBusyA').textContent = `${busyA.email || accounts.a.email}: ${(busyA.busy || []).length} busy block(s) found.`;
+        if ($('demoBusyB')) $('demoBusyB').textContent = `${busyB.email || accounts.b.email}: ${(busyB.busy || []).length} busy block(s) found.`;
         if (!optionsRes.ok) { results.innerHTML = `<div class="alert alert-danger">${escapeHtml(data.detail || 'Demo matching failed')}</div>`; return; }
         if (!(data.options || []).length) { results.innerHTML = '<div class="alert alert-warning">No shared options found for this date and time window.</div>'; return; }
         results.innerHTML = (data.options || []).map((slot, index) => `<div class="col-md-4"><div class="card option-card h-100"><div class="card-body"><span class="badge ${index === 0 ? 'text-bg-success' : 'text-bg-light'}">Option ${index + 1}</span><h2 class="h5 mt-3">${escapeHtml(new Date(slot.start).toLocaleString())}</h2><p>${escapeHtml(new Date(slot.end).toLocaleTimeString())}</p><p class="small text-secondary">${escapeHtml(slot.reason)}</p></div></div></div>`).join('');
@@ -807,7 +834,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         if (status) {
             status.className = "small mt-2 text-success";
-            status.innerHTML = `Saved in SQLite. <a href="/requests/${data.id}">Open request</a> · <a href="${data.invite_url}">Invite link</a>`;
+            status.innerHTML = `Saved. <a href="/requests/${data.id}">Open request</a> · <a href="${data.invite_url}">Invite link</a>`;
         }
     }
 
@@ -830,28 +857,50 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    function requestStatusLabel(status) {
+        const labels = {
+            draft: 'Draft', sent: 'Invitation sent', opened: 'Opened', awaiting_calendar_connection: 'Waiting for calendar', ready_for_matching: 'Ready to find times', disagreed: 'Declined', cancelled: 'Cancelled', expired: 'Expired'
+        };
+        return labels[status] || status;
+    }
+
     function renderRequestList(requests) {
         const list = $("requestList");
         if (!list) return;
         if (!requests || requests.length === 0) {
-            list.innerHTML = `<div class="empty-state text-center"><h2 class="h4">No requests yet</h2><p class="text-secondary">Create your first SQLite-backed request draft, then connect calendars and find options.</p><a class="btn btn-primary" href="/requests/new">Create request</a></div>`;
+            list.innerHTML = `<div class="empty-state text-center"><h2 class="h4">No requests yet</h2><p class="text-secondary">Create your first meeting request and invite someone to share availability.</p><a class="btn btn-primary" href="/requests/new">Create request</a></div>`;
             return;
         }
-        list.innerHTML = `<h2 class="h5 mb-3">Saved requests</h2>` + requests.map((req) => `
-            <div class="request-card card shadow-sm rounded-4 mb-3">
-                <div class="card-body p-4">
+        const ownEmail = currentUser?.email || '';
+        list.innerHTML = `<h2 class="h5 mb-3">Your requests</h2>` + requests.map((req) => {
+            const invitees = req.invitee_emails && req.invitee_emails.length ? req.invitee_emails : [req.invitee_email];
+            const isInvitee = invitees.includes(ownEmail);
+            const canAccept = isInvitee && !req.invite_accepted_at && !req.invite_declined_at && !['cancelled', 'expired', 'disagreed'].includes(req.status);
+            const calendarLabel = req.owner_calendar_label || req.invitee_calendar_label || '';
+            return `<div class="request-card card shadow-sm rounded-4 mb-3 position-relative">
+                <button class="btn btn-sm btn-light border delete-card-btn delete-request" data-request-id="${req.id}" type="button" aria-label="Delete request">×</button>
+                <div class="card-body p-4 pe-5">
                     <div class="d-flex justify-content-between gap-3">
-                        <div><h3 class="h5">${escapeHtml(req.title)}</h3><p class="text-secondary mb-2">With ${escapeHtml(req.invitee_email)} · ${escapeHtml(req.earliest_date)}–${escapeHtml(req.latest_date)} · ${escapeHtml(req.duration_minutes)} minutes</p></div>
-                        <span class="badge text-bg-secondary align-self-start">${escapeHtml(req.status)}</span>
+                        <div><h3 class="h5">${escapeHtml(req.title)}</h3><p class="text-secondary mb-2">With ${escapeHtml(invitees.join(', '))} · ${escapeHtml(req.earliest_date)}–${escapeHtml(req.latest_date)} · ${escapeHtml(req.duration_minutes)} minutes</p></div>
+                        <span class="badge text-bg-secondary align-self-start">${escapeHtml(requestStatusLabel(req.status))}</span>
                     </div>
-                    <p class="mb-3">Allowed ${escapeHtml((req.allowed_weekdays || []).join(", ") || "all days")} between ${escapeHtml(req.window_start)} and ${escapeHtml(req.window_end)}.</p>
+                    <p class="mb-3">Preferred times: ${escapeHtml(presetToText({ windows: req.allowed_windows }) || ((req.allowed_weekdays || []).join(', ') || 'Any day'))}.</p>
+                    ${calendarLabel ? `<p class="small text-secondary mb-3">Calendar selected for this request.</p>` : `<p class="small text-secondary mb-3">Choose or connect a calendar when you open this request.</p>`}
                     <a class="btn btn-outline-primary" href="/requests/${req.id}">Open request</a>
-                    <button class="btn btn-outline-secondary ms-2 invite-link-btn" type="button" data-request-id="${req.id}">Create invite link</button>
+                    ${canAccept ? `<button class="btn btn-primary ms-2 accept-request" type="button" data-request-id="${req.id}">Accept request</button>` : ''}
+                    ${!isInvitee ? `<button class="btn btn-outline-secondary ms-2 invite-link-btn" type="button" data-request-id="${req.id}">Create invite link</button>` : ''}
                     <span id="inviteLink-${req.id}" class="small text-secondary d-block mt-2"></span>
                 </div>
-            </div>`).join("");
+            </div>`;
+        }).join("");
         list.querySelectorAll(".invite-link-btn").forEach((button) => {
             button.addEventListener("click", () => generateInviteLink(button.dataset.requestId));
+        });
+        list.querySelectorAll(".accept-request").forEach((button) => {
+            button.addEventListener("click", () => acceptVisibleRequest(button.dataset.requestId));
+        });
+        list.querySelectorAll(".delete-request").forEach((button) => {
+            button.addEventListener("click", () => deleteMeetingRequest(button.dataset.requestId));
         });
     }
 
@@ -1031,16 +1080,7 @@ document.addEventListener("DOMContentLoaded", () => {
         renderSuggestedSlots();
 
         if (overview) {
-            overview.innerHTML = `
-                <details>
-                    <summary class="fw-semibold">Developer/debug response data</summary>
-                    <h3 class="h6 mt-3">Requester (${escapeHtml(data?.account_a?.email || "unknown")})</h3>
-                    <pre>${escapeHtml(JSON.stringify(data?.account_a?.busy || [], null, 2))}</pre>
-                    <h3 class="h6">Invitee (${escapeHtml(data?.account_b?.email || "unknown")})</h3>
-                    <pre>${escapeHtml(JSON.stringify(data?.account_b?.busy || [], null, 2))}</pre>
-                    <h3 class="h6">Combined busy periods</h3>
-                    <pre>${escapeHtml(JSON.stringify(data?.combined_busy || [], null, 2))}</pre>
-                </details>`;
+            overview.innerHTML = `<div class="privacy-note p-3 rounded-4">We checked the connected calendars and only used free/busy availability. Private event details stay hidden.</div>`;
         }
     }
 
@@ -1106,7 +1146,15 @@ document.addEventListener("DOMContentLoaded", () => {
         profileConnectGoogle.onclick = async () => {
             const user = await loadCurrentUser();
             if (!user) return alert("Log in before connecting a calendar account");
-            window.location = "/oauth/start";
+            window.location = "/oauth/start?return_to=/profile";
+        };
+    }
+    const requestConnectGoogle = $("requestConnectGoogle");
+    if (requestConnectGoogle) {
+        requestConnectGoogle.onclick = async () => {
+            const user = await loadCurrentUser();
+            if (!user) return alert("Log in before connecting a calendar account");
+            window.location = "/oauth/start?return_to=/requests/new";
         };
     }
     const requestPlatformBtn = $("requestPlatformBtn");

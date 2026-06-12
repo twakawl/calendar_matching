@@ -22,14 +22,14 @@ Users connect external calendars so the app can read availability and write meet
 
 ## User stories
 
-- As a user, I can connect Google Calendar so the app can inspect my availability.
+- As a user, I can connect Google Calendar from my profile, a new request, or an invite, so the app can inspect my availability and reuse the saved connection later.
 - As a user, I can disconnect a calendar connection.
 - As a user, I can permit the app to add proposed meeting options to my calendar.
 - As the app, I can delete only calendar events that I created.
 
 ## Acceptance criteria
 
-- A user can connect exactly one primary Google Calendar connection for the MVP, unless multi-calendar support is explicitly added.
+- A user can connect one or more Google Calendar accounts to their profile and choose the right saved connection for each request.
 - The app can fetch busy blocks for a meeting request date range.
 - Calendar details from another participant are not exposed to the request viewer.
 - App-created events include enough metadata or stored mappings for later cleanup.

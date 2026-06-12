@@ -592,3 +592,18 @@ section,
 .auth-switch-text a {
     font-weight: 800;
 }
+
+.delete-card-btn {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 2;
+    width: 2rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    line-height: 1;
+    font-weight: 800;
+}

@@ -34,8 +34,8 @@ This slice moves the prototype from a two-slot calendar test toward a user-cente
   - Weekend day: Saturday/Sunday 10:00–18:00.
   - Weekend evening: Friday/Saturday 18:00–00:00.
   - Working hours: weekdays 08:00–18:00.
-- Allow users to add custom presets and reorder presets.
-- Show preset order clearly with up/down controls, selectable weekday chips, time fields, and human-readable summaries.
+- Allow users to add custom presets, reorder presets, and build a preset from multiple time blocks.
+- Show preset order clearly with up/down controls, day/time block editors, add/remove block actions, and human-readable summaries.
 
 ### 3. Meeting request enhancements
 
@@ -49,7 +49,8 @@ This slice moves the prototype from a two-slot calendar test toward a user-cente
 
 - Add `/friends` in the same personal-menu area as profile.
 - Allow users to send friend requests to email addresses.
-- Allow recipients to accept requests.
+- Allow only the recipient to accept requests; senders see the invitation as sent.
+- Let either visible side delete a friend request from the card after confirming.
 - Add greyed-out placeholder buttons for Gmail, Apple, Microsoft, and Android contact imports.
 - Show pending and accepted friend relationships as cards with clear status badges.
 
