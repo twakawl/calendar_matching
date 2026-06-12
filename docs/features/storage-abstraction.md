@@ -28,7 +28,7 @@ The backend must support local development with SQLite and production-style depl
 
 - SQLite remains the concrete local store configured through `DATABASE_URL`.
 - `users`, `user_sessions`, and `oauth_states` support the first authenticated slice.
-- `google_accounts` now includes an `owner_user_id` and stores user-owned prototype slots internally while preserving the visible `a`/`b` labels.
+- `google_accounts` now includes an `owner_user_id` and stores user-owned profile calendar account labels internally without exposing fixed `a`/`b` slots in the UI.
 - A small `SQLiteIdentityRepository` boundary centralizes user and session persistence for the authentication flow.
 - Existing SQLite databases receive an additive `owner_user_id` column migration at startup.
 

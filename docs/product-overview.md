@@ -7,8 +7,8 @@ Create a simple web app that lets users connect their calendars, request meeting
 ## Core user journey
 
 1. A user creates an account or logs in.
-2. The user connects Google Calendar.
-3. The user creates a meeting request that defines:
+2. The user opens Profile, where calendar accounts start empty, then connects one or more calendar accounts. Google is the first connected provider; Microsoft and Apple are visible as not-connected options, and the user can request another platform.
+3. The user creates a meeting request, selects one of the profile's connected calendar accounts for that request, and defines:
    - invitee information,
    - meeting duration,
    - allowed weekdays,

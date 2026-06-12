@@ -6,15 +6,15 @@ This plan translates the documented product direction into a recommended build o
 
 ## Current repository assessment
 
-The repository now contains a runnable FastAPI prototype alongside the product planning docs. The prototype can connect two Google accounts in local slots, store encrypted refresh tokens in SQLite, read Google Calendar free/busy data, merge busy blocks, and display availability in a browser UI.
+The repository now contains a runnable FastAPI prototype alongside the product planning docs. The prototype can connect multiple Google accounts from Profile, store encrypted refresh tokens in SQLite, read Google Calendar free/busy data, merge busy blocks, and display availability in a browser UI.
 
 The first implemented product slice beyond raw free/busy comparison is an MVP matching endpoint and UI path that accepts duration plus weekday/hour windows, combines both connected calendars, and returns the top three non-overlapping options with deterministic earliest-slot scoring.
 
 ## Where we are after the first feature set
 
-- **Done:** runnable FastAPI app, first-party registration/login/session foundation, Google OAuth connection for two user-owned local calendar slots, encrypted refresh-token storage, SQLite persistence, free/busy reads, merged busy blocks, health endpoint, static UI, Fly.io deployment notes, and setup/deployment checks.
+- **Done:** runnable FastAPI app, first-party registration/login/session foundation, Google OAuth connection for multiple profile-owned calendar accounts, encrypted refresh-token storage, SQLite persistence, free/busy reads, merged busy blocks, health endpoint, static UI, Fly.io deployment notes, and setup/deployment checks.
 - **Done in this slice:** backend matching service and `/matching/options` endpoint that returns up to three candidate meeting options for the two connected calendars using duration, weekday, and allowed-hour constraints.
-- **Partially done:** the frontend can collect duration and weekday/hour preferences and display the three options, and the fixed `a`/`b` prototype slots are now scoped to the logged-in app user.
+- **Partially done:** the frontend can collect duration and weekday/hour preferences and display the three options, and calendar selection has moved to Profile and request creation selects one connected profile account.
 - **Done in latest slice:** SQLite-backed meeting request records, hashed expiring invite links, public invite preview, invitee accept/decline actions, request visibility checks, and request lifecycle audit events for the MVP invite flow.
 - **Not started:** persistent proposed options, calendar writes, final agreement tracking, advanced anonymized participant agenda views, Azure SQL implementation, and Microsoft Calendar.
 - **Next recommended task:** continue Phase 4 by storing matching runs/proposed options against meeting requests, then build request detail and privacy-preserving agenda views from Phase 5. Longer-term foundation cleanup should still extract the single-file prototype into a clearer package structure with repository interfaces and migrations.
@@ -28,7 +28,7 @@ The repository and README agree that this is a runnable FastAPI prototype with p
 Remaining follow-up:
 
 - Keep README API examples synchronized as the prototype gains endpoints.
-- Replace the fixed local account slots (`a` and `b`) with real authenticated users before exposing private data beyond local development.
+- Continue replacing same-user prototype comparison with true requester/invitee participant calendar selection before exposing private data beyond local development.
 
 ### 1. Build the application foundation
 

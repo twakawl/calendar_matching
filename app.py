@@ -136,7 +136,7 @@ class GoogleAccount(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     selected_as = Column(
         String, nullable=True
-    )  # 'a' or 'b' to indicate which slot this account is selected for display as
+    )  # legacy UI selection marker for older prototype screens
 
 
 class User(Base):
@@ -373,7 +373,7 @@ def _extract_session_token(request: Request, authorization: Optional[str]) -> Op
 
 
 def _storage_account_label(user_id: str, account_label: str) -> str:
-    """Map a user-owned slot label to the legacy single-column account key."""
+    """Map a user-owned calendar label to the legacy single-column account key."""
     return f"user:{user_id}:{account_label}"
 
 
@@ -837,6 +837,7 @@ class MatchingOptionsRequest(BaseModel):
     time_max: str
     duration_minutes: int = 30
     allowed_windows: list[TimeWindow] = Field(default_factory=list)
+    account_label: Optional[str] = None
     max_options: int = 3
 
 
@@ -981,8 +982,8 @@ async def demo_request_page():
 
 @app.get("/account", response_class=HTMLResponse)
 async def account_page(request: Request):
-    """Serve the account and calendar connection page."""
-    return _serve_authenticated_html(request, "account.html")
+    """Redirect legacy account links to profile-owned calendar connections."""
+    return RedirectResponse(url="/profile")
 
 
 @app.get("/not-implemented/{feature_slug}", response_class=HTMLResponse)
@@ -1679,7 +1680,9 @@ async def demo_matching_options(request: DemoMatchingRequest):
 
 @app.get("/oauth/start", tags=["OAuth"])
 async def oauth_start(
-    account_label: str = Query(..., description="Account label: 'a' or 'b'"),
+    account_label: Optional[str] = Query(
+        None, description="Optional profile calendar label"
+    ),
     current_user: User = Depends(require_current_user),
 ):
     """
@@ -1688,8 +1691,13 @@ async def oauth_start(
     """
     _validate_config()  # Validate config before using
 
-    if account_label not in ["a", "b"]:
-        raise HTTPException(status_code=400, detail="account_label must be 'a' or 'b'")
+    if not account_label:
+        account_label = f"cal_{secrets.token_urlsafe(6)}"
+    if not account_label.replace("_", "").replace("-", "").isalnum():
+        raise HTTPException(
+            status_code=400,
+            detail="account_label may contain only letters, numbers, hyphens, and underscores",
+        )
 
     db = SessionLocal()
     try:
@@ -1823,9 +1831,8 @@ async def oauth_callback(code: str = Query(...), state: str = Query(...)):
         finally:
             db.close()
 
-        # Redirect back to the account page so the new templates show connection status
-        # and the user can immediately connect the second calendar slot if needed.
-        redirect_url = f"/account?account_label={account_label}&email={email}"
+        # Redirect back to the profile page so users manage all calendar accounts there.
+        redirect_url = f"/profile?account_label={account_label}&email={email}"
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:
@@ -1837,7 +1844,7 @@ async def oauth_callback(code: str = Query(...), state: str = Query(...)):
     "/freebusy/{account_label}", response_model=FreeBusyResponse, tags=["Calendar"]
 )
 async def get_freebusy_account(
-    account_label: str = FastAPIPath(..., description="Account label: 'a' or 'b'"),
+    account_label: str = FastAPIPath(..., description="Profile calendar account label"),
     time_min: str = Query(
         ..., description="Start time (RFC 3339, e.g., 2026-02-28T00:00:00Z)"
     ),
@@ -1850,9 +1857,6 @@ async def get_freebusy_account(
     Get free/busy information for a specific account
     """
     logger.debug(f"get_freebusy_account called for account '{account_label}'")
-    if account_label not in ["a", "b"]:
-        raise HTTPException(status_code=400, detail="account_label must be 'a' or 'b'")
-
     db = SessionLocal()
     try:
         # Retrieve account
@@ -1924,6 +1928,30 @@ async def get_freebusy_account(
         db.close()
 
 
+def _resolve_pair_account_labels(
+    accounts: list[GoogleAccount], selected_label: Optional[str] = None
+) -> tuple[str, str]:
+    """Resolve the selected profile calendar and a second prototype comparison account."""
+    labels = [_display_account_label(account) for account in accounts]
+    if not labels:
+        raise HTTPException(
+            status_code=404,
+            detail="Connect a calendar account in your profile first",
+        )
+
+    primary = selected_label or labels[0]
+    if primary not in labels:
+        raise HTTPException(status_code=404, detail=f"Account '{primary}' not found")
+
+    secondary = next((label for label in labels if label != primary), None)
+    if not secondary:
+        raise HTTPException(
+            status_code=404,
+            detail="A second participant calendar is needed before live matching can compare availability",
+        )
+    return primary, secondary
+
+
 @app.get("/pair", response_model=PairedFreeBusyResponse, tags=["Calendar"])
 async def get_freebusy_pair(
     time_min: str = Query(
@@ -1931,6 +1959,9 @@ async def get_freebusy_pair(
     ),
     time_max: str = Query(
         ..., description="End time (RFC 3339, e.g., 2026-03-10T00:00:00Z)"
+    ),
+    account_label: Optional[str] = Query(
+        None, description="Selected profile calendar account label"
     ),
     current_user: User = Depends(require_current_user),
 ):
@@ -1942,31 +1973,19 @@ async def get_freebusy_pair(
         f"get_freebusy_pair called with time_min={time_min}, time_max={time_max}"
     )
     db = SessionLocal()
-    logger.debug(f"Account A: {DatabaseService.get_account('a', db, current_user.id)}")
-    logger.debug(f"Account B: {DatabaseService.get_account('b', db, current_user.id)}")
     try:
-        # Get both accounts
-        account_a = DatabaseService.get_account("a", db, current_user.id)
-        account_b = DatabaseService.get_account("b", db, current_user.id)
+        accounts = DatabaseService.get_all_accounts(db, current_user.id)
+        account_a_label, account_b_label = _resolve_pair_account_labels(accounts, account_label)
+        account_a = DatabaseService.get_account(account_a_label, db, current_user.id)
+        account_b = DatabaseService.get_account(account_b_label, db, current_user.id)
         logger.debug(
-            f"Account A: {account_a.email if account_a else 'None'}, Account B: {account_b.email if account_b else 'None'}"
+            f"Selected accounts: {account_a.email if account_a else 'None'}, {account_b.email if account_b else 'None'}"
         )
-
-        if not account_a or not account_b:
-            logger.warning(
-                "one or both accounts missing: a=%s b=%s",
-                bool(account_a),
-                bool(account_b),
-            )
-            raise HTTPException(
-                status_code=404,
-                detail="Both account 'a' and 'b' must be configured",
-            )
 
         # Get free/busy for both; wrap so we can log per-account failures
         try:
             freebusy_a = await get_freebusy_account(
-                account_label="a", time_min=time_min, time_max=time_max, current_user=current_user
+                account_label=account_a_label, time_min=time_min, time_max=time_max, current_user=current_user
             )
             logger.info(
                 f"Fetched freebusy for account a: {len(freebusy_a.busy)} busy periods"
@@ -1983,7 +2002,7 @@ async def get_freebusy_pair(
 
         try:
             freebusy_b = await get_freebusy_account(
-                account_label="b", time_min=time_min, time_max=time_max, current_user=current_user
+                account_label=account_b_label, time_min=time_min, time_max=time_max, current_user=current_user
             )
             logger.info(
                 f"Fetched freebusy for account b: {len(freebusy_b.busy)} busy periods"
@@ -2027,22 +2046,17 @@ async def get_matching_options(
     """Return the best meeting options for the two connected calendar accounts."""
     db = SessionLocal()
     try:
-        account_a = DatabaseService.get_account("a", db, current_user.id)
-        account_b = DatabaseService.get_account("b", db, current_user.id)
-        if not account_a or not account_b:
-            raise HTTPException(
-                status_code=404,
-                detail="Both account 'a' and 'b' must be configured before matching",
-            )
+        accounts = DatabaseService.get_all_accounts(db, current_user.id)
+        account_a_label, account_b_label = _resolve_pair_account_labels(accounts, request.account_label)
 
         freebusy_a = await get_freebusy_account(
-            account_label="a",
+            account_label=account_a_label,
             time_min=request.time_min,
             time_max=request.time_max,
             current_user=current_user,
         )
         freebusy_b = await get_freebusy_account(
-            account_label="b",
+            account_label=account_b_label,
             time_min=request.time_min,
             time_max=request.time_max,
             current_user=current_user,
@@ -2095,11 +2109,9 @@ async def list_accounts(current_user: User = Depends(require_current_user)):
 async def select_account(
     account_label: str = Query(
         ...,
-        description="Account label to mark as selected (for frontend display purposes), e.g., 'a' or 'b'",
+        description="Account label to mark as selected for legacy frontend display purposes",
     ),
-    selected_as: str = Query(
-        ..., description="Which slot to mark as selected: 'a' or 'b'"
-    ),
+    selected_as: str = Query(..., description="Legacy selection target"),
     current_user: User = Depends(require_current_user),
 ):
     """
@@ -2110,9 +2122,9 @@ async def select_account(
     logger.info(
         f"select_account called with account_label={account_label}, selected_as={selected_as}"
     )
-    if selected_as not in ["a", "b"]:
-        raise HTTPException(status_code=400, detail="selected_as must be 'a' or 'b'")
-    # write to the database tha a or b is selected given below response
+    if not selected_as.strip():
+        raise HTTPException(status_code=400, detail="selected_as cannot be empty")
+    # Validate that the selected account belongs to the current user.
     db = SessionLocal()
     try:
         accounts = DatabaseService.get_all_accounts(db, current_user.id)

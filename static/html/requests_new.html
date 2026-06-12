@@ -10,7 +10,7 @@
 <body data-requires-auth="true">
     <div id="health" title="API health"></div>
     <nav class="navbar navbar-expand-lg app-navbar sticky-top">
-        <div class="container"><a class="navbar-brand fw-bold" href="/">Calendar Matching</a><button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#appNav"><span class="navbar-toggler-icon"></span></button><div class="collapse navbar-collapse" id="appNav"><ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2"><li class="nav-item"><a class="nav-link" href="/dashboard">Dashboard</a></li><li class="nav-item"><a class="nav-link" href="/requests/new">New request</a></li><li class="nav-item"><a class="nav-link" href="/account">Account</a></li><li class="nav-item"><a class="nav-link" href="/requests/demo">Demo</a></li><li class="nav-item dropdown"><button class="btn btn-primary dropdown-toggle" id="userMenuButton" data-bs-toggle="dropdown" type="button"><span id="userMenuName">Personal menu</span></button><ul class="dropdown-menu dropdown-menu-end shadow rounded-4" aria-labelledby="userMenuButton"><li><a class="dropdown-item" href="/profile">Profile</a></li><li><a class="dropdown-item" href="/friends">Friends</a></li><li><a class="dropdown-item" href="/account">Calendar account</a></li><li><a class="dropdown-item" href="/requests/demo">Demo request</a></li><li><hr class="dropdown-divider"></li><li><button class="dropdown-item text-danger" id="logoutBtn" type="button">Log out</button></li></ul></li></ul></div></div>
+        <div class="container"><a class="navbar-brand fw-bold" href="/">Calendar Matching</a><button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#appNav"><span class="navbar-toggler-icon"></span></button><div class="collapse navbar-collapse" id="appNav"><ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2"><li class="nav-item"><a class="nav-link" href="/dashboard">Dashboard</a></li><li class="nav-item"><a class="nav-link" href="/requests/new">New request</a></li><li class="nav-item"><a class="nav-link" href="/requests/demo">Demo</a></li><li class="nav-item dropdown"><button class="btn btn-primary dropdown-toggle" id="userMenuButton" data-bs-toggle="dropdown" type="button"><span id="userMenuName">Personal menu</span></button><ul class="dropdown-menu dropdown-menu-end shadow rounded-4" aria-labelledby="userMenuButton"><li><a class="dropdown-item" href="/profile">Profile</a></li><li><a class="dropdown-item" href="/friends">Friends</a></li><li><a class="dropdown-item" href="/requests/demo">Demo request</a></li><li><hr class="dropdown-divider"></li><li><button class="dropdown-item text-danger" id="logoutBtn" type="button">Log out</button></li></ul></li></ul></div></div>
     </nav>
 
     <main class="container py-5">
@@ -68,7 +68,7 @@
                         </div>
 
                         <div class="d-flex flex-column flex-md-row gap-3 justify-content-between align-items-md-center border-top pt-4 mt-4">
-                            <div><div class="small text-secondary">Save the request draft in SQLite, then connect both calendar slots to compute live options.</div><div id="requestSaveStatus" class="small mt-2" aria-live="polite"></div></div>
+                            <div><div class="small text-secondary">Save the request draft in SQLite, then choose one of your profile calendar accounts for this request.</div><div id="requestSaveStatus" class="small mt-2" aria-live="polite"></div></div>
                             <div class="d-flex gap-2"><button class="btn btn-outline-primary btn-lg" id="saveRequestBtn" type="button">Save request draft</button><button class="btn btn-primary btn-lg primary-action" id="findBtn" type="button">Find best options</button></div>
                         </div>
                     </div>
@@ -76,13 +76,10 @@
 
                 <div id="accountSelectors" class="card shadow-sm rounded-4 mb-4">
                     <div class="card-body p-4">
-                        <h2 class="h5">Prototype account selectors</h2>
-                        <p class="text-secondary">Choose which connected Google accounts fill requester and invitee slots.</p>
-                        <div class="row g-3">
-                            <div class="col-md-6"><label class="form-label" for="selectA">Requester slot</label><select id="selectA" class="form-select"><option value="a">Account A</option></select></div>
-                            <div class="col-md-6"><label class="form-label" for="selectB">Invitee slot</label><select id="selectB" class="form-select"><option value="b">Account B</option></select></div>
-                        </div>
-                        <div class="d-flex gap-2 mt-3"><a class="btn btn-outline-primary" href="/account">Connect calendars</a><div id="emails" class="small text-secondary align-self-center"></div></div>
+                        <h2 class="h5">Calendar account for this request</h2>
+                        <p class="text-secondary">Select one connected calendar account from your profile. New accounts are connected from Profile; there are no requester/invitee A or B slots.</p>
+                        <label class="form-label" for="requestAccountSelect">Your calendar account</label><select id="requestAccountSelect" class="form-select"><option value="">No connected accounts yet</option></select>
+                        <div class="d-flex gap-2 mt-3"><a class="btn btn-outline-primary" href="/profile">Manage profile calendars</a><div id="emails" class="small text-secondary align-self-center"></div></div>
                     </div>
                 </div>
 

@@ -97,7 +97,6 @@ document.addEventListener("DOMContentLoaded", () => {
             publicNav.innerHTML = `
                 <li class="nav-item"><a class="nav-link" href="/dashboard">Dashboard</a></li>
                 <li class="nav-item"><a class="nav-link" href="/requests/new">New request</a></li>
-                <li class="nav-item"><a class="nav-link" href="/account">Account</a></li>
                 <li class="nav-item"><button class="btn btn-outline-secondary" id="homeLogoutBtn" type="button">Log out</button></li>`;
             const homeLogoutBtn = $("homeLogoutBtn");
             if (homeLogoutBtn) {
@@ -134,7 +133,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!container) return;
         const p = document.createElement("p");
         p.className = "mb-1";
-        p.textContent = `${String(label).toUpperCase()} connected: ${email}`;
+        p.textContent = `${email} connected`;
         container.appendChild(p);
     }
 
@@ -460,41 +459,26 @@ document.addEventListener("DOMContentLoaded", () => {
         accountsLoaded = list.length;
         renderProfileLinkedCalendars(list);
 
-        const accountA = list.find((acc) => acc.account_label === "a");
-        const accountB = list.find((acc) => acc.account_label === "b");
-        if (accountA) {
-            setText("emailA", accountA.email);
-            setBadge("statusA", "Connected", "text-bg-success");
-        }
-        if (accountB) {
-            setText("emailB", accountB.email);
-            setBadge("statusB", "Connected", "text-bg-success");
-        }
+        const emails = $("emails");
+        if (emails) emails.innerHTML = "";
+        list.forEach((acc) => showEmail(acc.account_label, acc.email));
 
-        const selA = $("selectA");
-        const selB = $("selectB");
-        if (!selA || !selB) return;
+        const requestAccountSelect = $("requestAccountSelect");
+        if (!requestAccountSelect) return;
 
-        selA.innerHTML = "";
-        selB.innerHTML = "";
+        requestAccountSelect.innerHTML = "";
         if (list.length === 0) {
-            selA.innerHTML = '<option value="a">Connect account A first</option>';
-            selB.innerHTML = '<option value="b">Connect account B first</option>';
+            requestAccountSelect.innerHTML = '<option value="">No connected accounts yet</option>';
             return;
         }
 
         list.forEach((acc) => {
-            const optA = document.createElement("option");
-            optA.value = acc.account_label;
-            optA.textContent = acc.email;
-            selA.appendChild(optA);
-
-            const optB = optA.cloneNode(true);
-            selB.appendChild(optB);
+            const opt = document.createElement("option");
+            opt.value = acc.account_label;
+            opt.textContent = acc.email;
+            requestAccountSelect.appendChild(opt);
         });
-
-        if (accountA) selA.value = "a";
-        if (accountB) selB.value = "b";
+        if (profileLinkedCalendarLabels[0]) requestAccountSelect.value = profileLinkedCalendarLabels[0];
     }
 
 
@@ -511,7 +495,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const container = $('profileLinkedCalendarList');
         if (!container) return;
         if (!accounts || accounts.length === 0) {
-            container.innerHTML = `<div class="border rounded-4 p-3 bg-white"><p class="mb-2 fw-semibold">No calendars connected yet.</p><p class="small text-secondary mb-0">Use the connector buttons below to add Google calendar slots to this profile.</p></div>`;
+            container.innerHTML = `<div class="border rounded-4 p-3 bg-white"><p class="mb-2 fw-semibold">No calendars connected yet.</p><p class="small text-secondary mb-0">Use the connector below to add your first Google calendar account to this profile.</p></div>`;
             return;
         }
         container.innerHTML = accounts.map((account) => {
@@ -519,7 +503,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const checked = profileLinkedCalendarLabels.includes(account.account_label) ? 'checked' : '';
             return `<div class="linked-calendar-option border rounded-4 p-3 bg-white">
                 <input class="form-check-input profile-calendar-input" type="checkbox" id="profileCalendar-${label}" value="${label}" ${checked}>
-                <label class="form-check-label ms-2" for="profileCalendar-${label}"><strong>${escapeHtml(account.email)}</strong><span class="d-block small text-secondary">Google Calendar slot ${label.toUpperCase()}</span></label>
+                <label class="form-check-label ms-2" for="profileCalendar-${label}"><strong>${escapeHtml(account.email)}</strong><span class="d-block small text-secondary">Google Calendar</span></label>
             </div>`;
         }).join('');
         container.querySelectorAll('.profile-calendar-input').forEach((input) => {
@@ -904,12 +888,13 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         setInviteStatus(data.message);
         setText("inviteRequestStatus", data.status);
-        if (action === "accept") window.location.href = "/account";
+        if (action === "accept") window.location.href = "/profile";
     }
 
     async function findMatchingTimes() {
-        if (accountsLoaded < 2) {
-            alert("Both calendars must be connected first. Use the Account page to connect Google Calendar slots A and B.");
+        const selectedAccountLabel = $("requestAccountSelect")?.value;
+        if (accountsLoaded < 1 || !selectedAccountLabel) {
+            alert("Connect a calendar account in your profile first.");
             return;
         }
 
@@ -919,7 +904,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const overview = $("overview");
         if (overview) overview.innerHTML = '<div class="alert alert-info">Checking calendars and finding the best options…</div>';
 
-        const res = await fetch(`/pair?time_min=${encodeURIComponent(timeMin)}&time_max=${encodeURIComponent(timeMax)}`);
+        const pairUrl = `/pair?time_min=${encodeURIComponent(timeMin)}&time_max=${encodeURIComponent(timeMax)}&account_label=${encodeURIComponent(selectedAccountLabel)}`;
+        const res = await fetch(pairUrl);
         if (!res.ok) {
             if (overview) overview.innerHTML = '<div class="alert alert-danger">Error fetching calendar availability. Reconnect calendars or try again.</div>';
             return;
@@ -939,6 +925,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 time_max: timeMax,
                 duration_minutes: durationMinutes,
                 allowed_windows: userPrefs,
+                account_label: selectedAccountLabel,
                 max_options: 3,
             }),
         });
@@ -983,24 +970,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     <pre>${escapeHtml(JSON.stringify(data?.combined_busy || [], null, 2))}</pre>
                 </details>`;
         }
-    }
-
-    const authA = $("authA");
-    if (authA) {
-        authA.onclick = async () => {
-            const user = await loadCurrentUser();
-            if (!user) return alert("Log in before connecting calendar A");
-            window.location = "/oauth/start?account_label=a";
-        };
-    }
-
-    const authB = $("authB");
-    if (authB) {
-        authB.onclick = async () => {
-            const user = await loadCurrentUser();
-            if (!user) return alert("Log in before connecting calendar B");
-            window.location = "/oauth/start?account_label=b";
-        };
     }
 
     const prevBtn = $("prevDay");
@@ -1055,10 +1024,26 @@ document.addEventListener("DOMContentLoaded", () => {
     if (addPresetBtn) addPresetBtn.onclick = addPreset;
     const sendFriendBtn = $("sendFriendBtn");
     if (sendFriendBtn) sendFriendBtn.onclick = sendFriendRequest;
-    const profileConnectA = $("profileConnectA");
-    if (profileConnectA) profileConnectA.onclick = async () => { const user = await loadCurrentUser(); if (!user) return alert("Log in before connecting calendar A"); window.location = "/oauth/start?account_label=a"; };
-    const profileConnectB = $("profileConnectB");
-    if (profileConnectB) profileConnectB.onclick = async () => { const user = await loadCurrentUser(); if (!user) return alert("Log in before connecting calendar B"); window.location = "/oauth/start?account_label=b"; };
+    const profileConnectGoogle = $("profileConnectGoogle");
+    if (profileConnectGoogle) {
+        profileConnectGoogle.onclick = async () => {
+            const user = await loadCurrentUser();
+            if (!user) return alert("Log in before connecting a calendar account");
+            window.location = "/oauth/start";
+        };
+    }
+    const requestPlatformBtn = $("requestPlatformBtn");
+    if (requestPlatformBtn) {
+        requestPlatformBtn.onclick = () => $("platformRequestForm")?.classList.toggle("d-none");
+    }
+    const platformRequestForm = $("platformRequestForm");
+    if (platformRequestForm) {
+        platformRequestForm.onsubmit = (event) => {
+            event.preventDefault();
+            setText("platformRequestStatus", "Thanks — your platform request has been recorded for product review.");
+            platformRequestForm.reset();
+        };
+    }
     const demoConnectA = $("demoConnectA");
     if (demoConnectA) demoConnectA.onclick = () => setDemoConnector('A', true);
     const demoConnectB = $("demoConnectB");
@@ -1076,7 +1061,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setDefaultDates();
     initAuthCallbackBanner();
     loadCurrentUser().catch(() => { if (requiresAuth) window.location.replace("/login"); });
-    if ($("emails") || $("selectA") || $("statusA")) loadAccounts().catch(() => { });
+    if ($("emails") || $("requestAccountSelect") || $("profileLinkedCalendarList")) loadAccounts().catch(() => { });
     loadProfile().catch(() => { });
     loadFriends().catch(() => { });
     loadRequests().catch(() => { });

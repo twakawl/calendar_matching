@@ -35,7 +35,7 @@ A logged-in user can create a meeting request and invite another user through a 
 
 ## User stories
 
-- As a requesting user, I can define when a meeting may happen.
+- As a requesting user, I can select one connected calendar account from my profile and define when a meeting may happen.
 - As a requesting user, I can send a link to one or more users.
 - As a requesting user, I can add accepted friends or email invitees to a request.
 - As an invited user, I can open the link and log in to continue.
@@ -46,8 +46,8 @@ A logged-in user can create a meeting request and invite another user through a 
 
 - Request links are hard to guess and can expire.
 - Only the requester and invitee can view the request after authentication.
-- The request captures enough constraints for the matching engine.
-- A request cannot be matched until both required calendar connections are available.
+- The request captures the selected profile calendar account plus enough constraints for the matching engine.
+- A request cannot be matched until the requester has selected a connected profile calendar account and the invited participant calendar is available.
 - The app records important lifecycle changes for debugging and auditability.
 
 ## Data needs
@@ -55,14 +55,14 @@ A logged-in user can create a meeting request and invite another user through a 
 - Meeting request record.
 - Participant records for requester and invitees.
 - Secure link token hash and expiration.
-- Request constraints.
+- Selected requester calendar account and request constraints.
 - Request lifecycle history.
 
 ## Current prototype slice
 
 - The FastAPI prototype now persists requester-owned request records in local SQLite through `/api/requests`.
 - New requests generate hard-to-guess invite tokens, store only token hashes plus expirations, and return the raw invite URL only at creation/regeneration time.
-- The authenticated `/requests/new` page can save a request with title, multiple invitee emails, accepted friend selections, duration, date range, selected weekdays, one or more grouped time-window sets, timezone, ordered time-preset choice, and notes.
+- The authenticated `/requests/new` page can save a request with title, multiple invitee emails, accepted friend selections, duration, date range, selected profile calendar account, selected weekdays, one or more grouped time-window sets, timezone, ordered time-preset choice, and notes.
 - The authenticated `/dashboard` page loads requests visible to the requester or accepted invitee from SQLite and can regenerate invite links.
 - The public `/invite/{token}` page resolves only non-sensitive request details, then lets the matching logged-in invitee accept or decline.
 - Request access checks now allow only the requester, invitee email, or accepted invitee user to fetch request details after authentication.

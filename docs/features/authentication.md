@@ -30,7 +30,7 @@ Users must log in before connecting calendars, creating meeting requests, accept
 - Calendar account listing, Google OAuth start, free/busy reads, paired availability, and matching now require an authenticated app user.
 - Unauthenticated browser users are redirected to `/login`; registration lives separately at `/register`, display name is not collected on login, and registration defaults display name to the email local part before `@`.
 - The authenticated app shell shows primary navigation links plus a clear top-right personal dropdown for Profile, Friends, Account, Demo request, and logout.
-- Connected Google calendar slots are owned by the logged-in user while still exposing prototype slot names `a` and `b` in the UI.
+- Connected Google calendar accounts are owned by the logged-in user profile; the UI no longer exposes requester/invitee slot names `a` and `b`.
 
 Still deferred:
 
