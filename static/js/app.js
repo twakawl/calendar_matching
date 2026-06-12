@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let showCalendarB = true;
     let accountsLoaded = 0;
     let currentUser = null;
+    let currentInviteRequestId = null;
     const requiresAuth = document.body.dataset.requiresAuth === "true";
 
     function $(id) {
@@ -381,6 +382,22 @@ document.addEventListener("DOMContentLoaded", () => {
             setBadge("statusB", "Connected", "text-bg-success");
         }
 
+        const requestCalendar = $("requestOwnerCalendar");
+        const inviteCalendar = $("inviteCalendarSelect");
+        [requestCalendar, inviteCalendar].filter(Boolean).forEach((select) => {
+            select.innerHTML = list.length
+                ? '<option value="">Select one linked calendar…</option>'
+                : '<option value="">No linked calendars yet</option>';
+            list.forEach((acc) => {
+                const option = document.createElement("option");
+                option.value = acc.account_label;
+                option.textContent = `${acc.email} (slot ${String(acc.account_label).toUpperCase()})`;
+                select.appendChild(option);
+            });
+            if (list.length === 1) select.value = list[0].account_label;
+            if (requestCalendar && currentUser?.linked_calendar_label) requestCalendar.value = currentUser.linked_calendar_label;
+        });
+
         const selA = $("selectA");
         const selB = $("selectB");
         if (!selA || !selB) return;
@@ -605,6 +622,7 @@ document.addEventListener("DOMContentLoaded", () => {
             invitee_emails: inviteeEmails,
             friend_ids: friendEmails,
             time_preset_id: $("timePresetSelect")?.value || null,
+            owner_calendar_label: $("requestOwnerCalendar")?.value || null,
             duration_minutes: Number($("durationMinutes")?.value || 30),
             earliest_date: $("earliestDate")?.value || "",
             latest_date: $("latestDate")?.value || "",
@@ -716,6 +734,7 @@ document.addEventListener("DOMContentLoaded", () => {
             setInviteStatus(data.detail || "This invite link is unavailable.", true);
             return;
         }
+        currentInviteRequestId = data.request_id;
         setInviteStatus(`Invite expires ${new Date(data.expires_at).toLocaleString()}.`);
         setText("inviteTitle", data.title);
         setText("inviteSummary", `${data.requester_email} wants to find a shared ${data.duration_minutes}-minute meeting.`);
@@ -725,6 +744,51 @@ document.addEventListener("DOMContentLoaded", () => {
         setText("inviteDates", `${data.earliest_date}–${data.latest_date}`);
         setText("inviteWindow", `${(data.allowed_weekdays || []).join(", ") || "Any day"} · ${data.window_start}–${data.window_end} ${data.timezone}`);
         setText("inviteRequestStatus", data.status);
+        if (window.location.search.includes("accepted=1") || data.status === "awaiting_calendar_connection") {
+            showInviteCalendarPanel();
+        }
+    }
+
+    function showInviteCalendarPanel() {
+        const panel = $("inviteCalendarPanel");
+        if (panel) panel.classList.remove("d-none");
+        loadAccounts().catch(() => {
+            setText("inviteCalendarStatus", "Log in to load linked calendars, or connect Google Calendar after accepting.");
+        });
+    }
+
+    async function selectInviteCalendar() {
+        const status = $("inviteCalendarStatus");
+        const calendarLabel = $("inviteCalendarSelect")?.value || "";
+        if (!currentInviteRequestId) {
+            if (status) status.textContent = "Accept the invite before selecting a calendar.";
+            return;
+        }
+        if (!calendarLabel) {
+            if (status) status.textContent = "Choose one linked calendar first.";
+            return;
+        }
+        if (status) status.textContent = "Saving calendar selection…";
+        const res = await fetch(`/api/requests/${encodeURIComponent(currentInviteRequestId)}/calendar`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ calendar_label: calendarLabel }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (status) {
+            status.className = res.ok ? "small text-success mt-2" : "small text-danger mt-2";
+            status.textContent = res.ok ? "Calendar selected for this request." : (data.detail || "Could not select that calendar.");
+        }
+        if (res.ok) setText("inviteRequestStatus", data.status);
+    }
+
+    function connectInviteCalendar() {
+        if (!currentInviteRequestId) {
+            setText("inviteCalendarStatus", "Accept the invite before connecting a calendar.");
+            return;
+        }
+        const calendarLabel = $("inviteCalendarSelect")?.value || "a";
+        window.location = `/oauth/start?account_label=${encodeURIComponent(calendarLabel || "a")}&request_id=${encodeURIComponent(currentInviteRequestId)}`;
     }
 
     async function respondToInvite(action) {
@@ -741,7 +805,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         setInviteStatus(data.message);
         setText("inviteRequestStatus", data.status);
-        if (action === "accept") window.location.href = "/account";
+        if (action === "accept") {
+            showInviteCalendarPanel();
+            window.history.replaceState(null, "", `${window.location.pathname}?accepted=1`);
+        }
     }
 
     async function findMatchingTimes() {
@@ -880,6 +947,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const declineInviteBtn = $("declineInviteBtn");
     if (declineInviteBtn) declineInviteBtn.onclick = () => respondToInvite("decline");
 
+    const selectInviteCalendarBtn = $("selectInviteCalendarBtn");
+    if (selectInviteCalendarBtn) selectInviteCalendarBtn.onclick = selectInviteCalendar;
+    const connectInviteCalendarBtn = $("connectInviteCalendarBtn");
+    if (connectInviteCalendarBtn) connectInviteCalendarBtn.onclick = connectInviteCalendar;
+
     const findBtn = $("findBtn");
     if (findBtn) findBtn.onclick = findMatchingTimes;
 
@@ -899,7 +971,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setDefaultDates();
     initAuthCallbackBanner();
     loadCurrentUser().catch(() => { if (requiresAuth) window.location.replace("/login"); });
-    if ($("emails") || $("selectA") || $("statusA")) loadAccounts().catch(() => { });
+    if ($("emails") || $("selectA") || $("statusA") || $("requestOwnerCalendar") || $("inviteCalendarSelect")) loadAccounts().catch(() => { });
     loadProfile().catch(() => { });
     loadFriends().catch(() => { });
     loadRequests().catch(() => { });

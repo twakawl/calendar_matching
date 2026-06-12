@@ -39,6 +39,35 @@ class AuthenticationApiTest(unittest.TestCase):
         finally:
             db.close()
 
+    def test_development_test_accounts_are_seeded_once(self):
+        db = SessionLocal()
+        try:
+            seeded = {
+                user.email: user
+                for user in db.query(User).filter(
+                    User.email.in_([
+                        "twan.houwers92@gmail.com",
+                        "twan@dutchwebshark.com",
+                    ])
+                ).all()
+            }
+            self.assertEqual(
+                set(seeded),
+                {"twan.houwers92@gmail.com", "twan@dutchwebshark.com"},
+            )
+            for user in seeded.values():
+                self.assertTrue(user.password_hash.startswith("pbkdf2_sha256$"))
+                self.assertNotEqual(user.password_hash, "Test123!")
+        finally:
+            db.close()
+
+        for email in ["twan.houwers92@gmail.com", "twan@dutchwebshark.com"]:
+            login = self.client.post(
+                "/auth/login",
+                json={"email": email, "password": "Test123!"},
+            )
+            self.assertEqual(login.status_code, 200)
+
     def test_login_me_and_logout_session_flow(self):
         self.client.post(
             "/auth/register",

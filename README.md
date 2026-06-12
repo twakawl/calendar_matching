@@ -31,10 +31,11 @@ The setup instructions that are needed for the current prototype are included be
 - Offline access with refresh token storage.
 - Fernet encryption for stored refresh tokens.
 - SQLite-backed `users`, `user_sessions`, `oauth_states`, user-owned `google_accounts`, `meeting_requests`, and `request_audit_events` records.
+- Disposable local SQLite seed users are provisioned on startup when missing: `twan.houwers92@gmail.com` and `twan@dutchwebshark.com`, both with password `Test123!`.
 - Google Calendar free/busy reads for primary calendars only; event titles, descriptions, attendees, and locations are not fetched.
 - Combined busy-block response for two connected accounts.
 - MVP matching endpoint that returns the top three non-overlapping meeting options from duration, weekday, allowed-hour, and busy-block constraints.
-- Bootstrap-based multi-page frontend with a public informational home page, polished login/register screens, a clear top navigation bar with personal dropdown menu, authenticated dashboard, account/calendar connection cards, profile and friends pages, SQLite-backed multi-invitee request creation/listing, secure invite preview with accept/decline actions, request-detail placeholders, responsive availability preview, a public demo request, and live top-three matching cards backed by the existing Google free/busy prototype.
+- Bootstrap-based multi-page frontend with a public informational home page, polished login/register screens, a clear top navigation bar with personal dropdown menu, authenticated dashboard, account/calendar connection cards, profile and friends pages, SQLite-backed multi-invitee request creation/listing with one requester-selected linked calendar, secure invite preview with accept/decline actions plus invitee calendar selection/connection, request-detail placeholders, responsive availability preview, a public demo request, and live top-three matching cards backed by the existing Google free/busy prototype.
 - Automatic access-token refresh before Calendar API calls.
 
 ## Future implementation scope
@@ -187,10 +188,11 @@ http://127.0.0.1:8000/redoc
 
 1. Open `http://127.0.0.1:8000`; unauthenticated users see the public information home page with a top-right **Log in** button.
 2. Register or log in with an app account, then use the authenticated dashboard and account pages.
-3. Create a request from `/requests/new`; it is persisted in local SQLite, generates a hashed expiring invite token, and appears on `/dashboard`.
-4. From `/account`, connect **Google Calendar · Slot A** and **Google Calendar · Slot B** with OAuth.
-5. On `/requests/new`, select a meeting duration and weekday/hour availability preferences.
-6. Click **Find best options** to fetch both calendars' busy blocks and show the top three matching slots.
+3. From `/account`, connect at least one Google Calendar slot with OAuth.
+4. Create a request from `/requests/new`; choose one linked calendar from your account, save it to local SQLite, and use the generated hashed expiring invite link from `/dashboard` or the save confirmation.
+5. Open the invite link in another browser/session, log in as the invitee email, accept or decline the request, then select an existing linked calendar or connect Google Calendar directly from the invite page.
+6. On `/requests/new`, select a meeting duration and weekday/hour availability preferences.
+7. Click **Find best options** to fetch both prototype calendar slots' busy blocks and show the top three matching slots.
 
 Direct OAuth start URLs are also available after logging in:
 
@@ -210,8 +212,8 @@ The current frontend implements the first UI milestone from `docs/ui-design-plan
 - `/friends` — authenticated friend list with email request/accept flow and disabled contact-import placeholders.
 - `/account` — authenticated Google Calendar connection cards for prototype slots A and B, plus a Microsoft Calendar placeholder.
 - `/dashboard` — authenticated list of SQLite-backed requests visible to the requester or accepted invitee, with an action to regenerate invite links.
-- `/requests/new` — authenticated request creation wizard-style form with title, multiple invitee emails, friend selections, three quick preset buttons plus ordered preset dropdown, duration, date range, weekday chips, time window, SQLite save action, prominent live matching button, top-three option cards, and secondary availability preview.
-- `/invite/{token}` — public secure invite preview that resolves non-sensitive request details from a hashed expiring token and lets the matching logged-in invitee accept or decline.
+- `/requests/new` — authenticated request creation wizard-style form with title, multiple invitee emails, friend selections, one selected linked calendar for the requester, three quick preset buttons plus ordered preset dropdown, duration, date range, weekday chips, time window, SQLite save action, prominent live matching button, top-three option cards, and secondary availability preview.
+- `/invite/{token}` — public secure invite preview that resolves non-sensitive request details from a hashed expiring token and lets the matching logged-in invitee accept or decline, then select a linked calendar or connect Google Calendar in the same request context.
 - `/requests/demo` — public demo request that runs the matching engine against two separate demo calendar busy registries.
 - `/requests/demo-request` — request detail placeholder with participant readiness, option cards, and agreement-state placeholders.
 - `/requests/demo-request/availability` — anonymized availability preview placeholder.

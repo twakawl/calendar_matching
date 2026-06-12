@@ -31,6 +31,7 @@ Users must log in before connecting calendars, creating meeting requests, accept
 - Unauthenticated browser users are redirected to `/login`; registration lives separately at `/register`, and display name is not collected on login.
 - The authenticated app shell shows primary navigation links plus a clear top-right personal dropdown for Profile, Friends, Account, Demo request, and logout.
 - Connected Google calendar slots are owned by the logged-in user while still exposing prototype slot names `a` and `b` in the UI.
+- Local SQLite startup seeds two disposable testing users when missing: `twan.houwers92@gmail.com` and `twan@dutchwebshark.com`, both with password `Test123!`.
 
 Still deferred:
 

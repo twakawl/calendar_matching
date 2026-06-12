@@ -176,6 +176,8 @@ class OAuthState(Base):
     state = Column(String, primary_key=True)
     user_id = Column(String, nullable=False, index=True)
     account_label = Column(String, nullable=False)
+    request_id = Column(String, nullable=True, index=True)
+    request_role = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
     used_at = Column(DateTime, nullable=True)
@@ -193,6 +195,8 @@ class MeetingRequest(Base):
     invitee_emails = Column(String, nullable=True)
     friend_ids = Column(String, nullable=True)
     time_preset_id = Column(String, nullable=True)
+    owner_calendar_label = Column(String, nullable=True)
+    invitee_calendar_label = Column(String, nullable=True)
     duration_minutes = Column(Integer, nullable=False, default=30)
     earliest_date = Column(String, nullable=False)
     latest_date = Column(String, nullable=False)
@@ -287,6 +291,8 @@ def _run_lightweight_migrations() -> None:
                 "invitee_emails": "VARCHAR",
                 "friend_ids": "VARCHAR",
                 "time_preset_id": "VARCHAR",
+                "owner_calendar_label": "VARCHAR",
+                "invitee_calendar_label": "VARCHAR",
                 "invite_token_hash": "VARCHAR",
                 "invite_expires_at": "DATETIME",
                 "invite_opened_at": "DATETIME",
@@ -299,6 +305,23 @@ def _run_lightweight_migrations() -> None:
                     connection.execute(
                         text(
                             f"ALTER TABLE meeting_requests ADD COLUMN {column_name} {column_type}"
+                        )
+                    )
+
+        if "oauth_states" in request_tables:
+            oauth_columns = {
+                row[1]
+                for row in connection.execute(text("PRAGMA table_info(oauth_states)"))
+            }
+            oauth_additive_columns = {
+                "request_id": "VARCHAR",
+                "request_role": "VARCHAR",
+            }
+            for column_name, column_type in oauth_additive_columns.items():
+                if column_name not in oauth_columns:
+                    connection.execute(
+                        text(
+                            f"ALTER TABLE oauth_states ADD COLUMN {column_name} {column_type}"
                         )
                     )
 
@@ -357,6 +380,38 @@ def _hash_session_token(token: str) -> str:
 def _hash_invite_token(token: str) -> str:
     """Hash an invite token so only a non-reversible digest is stored."""
     return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _provision_development_users() -> None:
+    """Create disposable test users for local SQLite containers if missing."""
+    if not DATABASE_URL.startswith("sqlite"):
+        return
+
+    seed_users = [
+        ("twan.houwers92@gmail.com", "Twan Houwers"),
+        ("twan@dutchwebshark.com", "Dutchwebshark"),
+    ]
+    db = SessionLocal()
+    try:
+        for email, display_name in seed_users:
+            normalized_email = _normalize_email(email)
+            if db.query(User).filter_by(email=normalized_email).first():
+                continue
+            db.add(
+                User(
+                    id=str(uuid.uuid4()),
+                    email=normalized_email,
+                    display_name=display_name,
+                    password_hash=_hash_password("Test123!"),
+                    created_at=datetime.utcnow(),
+                )
+            )
+        db.commit()
+    finally:
+        db.close()
+
+
+_provision_development_users()
 
 
 def _extract_session_token(request: Request, authorization: Optional[str]) -> Optional[str]:
@@ -758,6 +813,8 @@ class MeetingRequestCreate(BaseModel):
     invitee_emails: list[str] = Field(default_factory=list)
     friend_ids: list[str] = Field(default_factory=list)
     time_preset_id: Optional[str] = None
+    owner_calendar_label: Optional[str] = None
+    invitee_calendar_label: Optional[str] = None
     duration_minutes: int = 30
     earliest_date: str
     latest_date: str
@@ -801,6 +858,10 @@ class InviteActionResponse(BaseModel):
     request_id: str
     status: str
     message: str
+
+
+class RequestCalendarSelection(BaseModel):
+    calendar_label: str
 
 
 class AuditEventResponse(BaseModel):
@@ -1154,6 +1215,8 @@ def _meeting_request_response(
         invitee_emails=_invitee_emails_for(record),
         friend_ids=json.loads(record.friend_ids or "[]"),
         time_preset_id=record.time_preset_id,
+        owner_calendar_label=record.owner_calendar_label,
+        invitee_calendar_label=record.invitee_calendar_label,
         duration_minutes=record.duration_minutes,
         earliest_date=record.earliest_date,
         latest_date=record.latest_date,
@@ -1245,6 +1308,16 @@ def _get_invite_record_or_404(db: Session, token: str) -> MeetingRequest:
     return record
 
 
+def _validate_calendar_label(calendar_label: Optional[str]) -> Optional[str]:
+    """Validate a user-owned calendar slot label from the prototype account list."""
+    if not calendar_label:
+        return None
+    normalized = calendar_label.strip()
+    if normalized not in {"a", "b"}:
+        raise HTTPException(status_code=400, detail="Calendar selection must be account 'a' or 'b'")
+    return normalized
+
+
 def _validate_meeting_request_payload(payload: MeetingRequestCreate) -> None:
     """Validate the request fields that are currently persisted by SQLite."""
     if not payload.title.strip():
@@ -1267,6 +1340,8 @@ def _validate_meeting_request_payload(payload: MeetingRequestCreate) -> None:
         raise HTTPException(status_code=400, detail="Latest date must be on or after earliest date")
     if payload.window_start >= payload.window_end:
         raise HTTPException(status_code=400, detail="Start time must be before end time")
+    _validate_calendar_label(payload.owner_calendar_label)
+    _validate_calendar_label(payload.invitee_calendar_label)
 
 
 @app.get("/api/requests", response_model=list[MeetingRequestResponse], tags=["Meeting requests"])
@@ -1292,6 +1367,8 @@ async def create_meeting_request(
     _validate_meeting_request_payload(payload)
     now = datetime.utcnow()
     normalized_invitees = [_normalize_email(email) for email in (payload.invitee_emails or [payload.invitee_email])]
+    owner_calendar_label = _validate_calendar_label(payload.owner_calendar_label)
+    invitee_calendar_label = _validate_calendar_label(payload.invitee_calendar_label)
     record = MeetingRequest(
         id=str(uuid.uuid4()),
         owner_user_id=current_user.id,
@@ -1300,6 +1377,8 @@ async def create_meeting_request(
         invitee_emails=json.dumps(normalized_invitees),
         friend_ids=json.dumps(payload.friend_ids),
         time_preset_id=payload.time_preset_id,
+        owner_calendar_label=owner_calendar_label,
+        invitee_calendar_label=invitee_calendar_label,
         duration_minutes=payload.duration_minutes,
         earliest_date=payload.earliest_date,
         latest_date=payload.latest_date,
@@ -1314,6 +1393,8 @@ async def create_meeting_request(
     )
     db = SessionLocal()
     try:
+        if owner_calendar_label and not DatabaseService.get_account(owner_calendar_label, db, current_user.id):
+            raise HTTPException(status_code=400, detail="Selected calendar is not linked to your account")
         db.add(record)
         db.flush()
         _audit_event(db, record.id, "created", current_user.id)
@@ -1333,6 +1414,42 @@ async def get_meeting_request(
     db = SessionLocal()
     try:
         record = _get_visible_request_or_404(db, request_id, current_user)
+        return _meeting_request_response(record)
+    finally:
+        db.close()
+
+
+@app.post("/api/requests/{request_id}/calendar", response_model=MeetingRequestResponse, tags=["Meeting requests"])
+async def select_request_calendar(
+    request_id: str,
+    payload: RequestCalendarSelection,
+    current_user: User = Depends(require_current_user),
+):
+    """Select one linked calendar slot for the current user's side of a request."""
+    calendar_label = _validate_calendar_label(payload.calendar_label)
+    db = SessionLocal()
+    try:
+        record = _get_visible_request_or_404(db, request_id, current_user)
+        if not DatabaseService.get_account(calendar_label, db, current_user.id):
+            raise HTTPException(status_code=400, detail="Selected calendar is not linked to your account")
+
+        if record.owner_user_id == current_user.id:
+            record.owner_calendar_label = calendar_label
+            role = "owner"
+        else:
+            if current_user.email not in _invitee_emails_for(record) and record.invitee_user_id != current_user.id:
+                raise HTTPException(status_code=403, detail="This request is for a different invitee")
+            record.invitee_user_id = current_user.id
+            record.invitee_calendar_label = calendar_label
+            role = "invitee"
+
+        record.updated_at = datetime.utcnow()
+        if record.status in {"opened", "sent", "awaiting_calendar_connection"}:
+            record.status = "ready_for_matching" if record.owner_calendar_label and record.invitee_calendar_label else "awaiting_calendar_connection"
+        _audit_event(db, record.id, "calendar_selected", current_user.id, {"role": role, "calendar_label": calendar_label})
+        db.add(record)
+        db.commit()
+        db.refresh(record)
         return _meeting_request_response(record)
     finally:
         db.close()
@@ -1570,6 +1687,7 @@ async def demo_matching_options(request: DemoMatchingRequest):
 @app.get("/oauth/start", tags=["OAuth"])
 async def oauth_start(
     account_label: str = Query(..., description="Account label: 'a' or 'b'"),
+    request_id: Optional[str] = Query(default=None, description="Optional meeting request to attach this calendar to"),
     current_user: User = Depends(require_current_user),
 ):
     """
@@ -1583,10 +1701,22 @@ async def oauth_start(
 
     db = SessionLocal()
     try:
+        request_role = None
+        if request_id:
+            record = _get_visible_request_or_404(db, request_id, current_user)
+            if record.owner_user_id == current_user.id:
+                request_role = "owner"
+            else:
+                request_role = "invitee"
+                record.invitee_user_id = current_user.id
+                db.add(record)
+
         oauth_state = OAuthState(
             state=secrets.token_urlsafe(32),
             user_id=current_user.id,
             account_label=account_label,
+            request_id=request_id,
+            request_role=request_role,
             expires_at=datetime.utcnow() + timedelta(minutes=15),
         )
         db.add(oauth_state)
@@ -1697,6 +1827,31 @@ async def oauth_callback(code: str = Query(...), state: str = Query(...)):
             )
             logger.info(f"Account '{account_label}' ({email}) saved successfully")
 
+            if oauth_state.request_id:
+                request_record = db.query(MeetingRequest).filter_by(id=oauth_state.request_id).first()
+                if request_record:
+                    role = oauth_state.request_role or ("owner" if request_record.owner_user_id == oauth_state.user_id else "invitee")
+                    if role == "owner":
+                        request_record.owner_calendar_label = account_label
+                    else:
+                        request_record.invitee_user_id = oauth_state.user_id
+                        request_record.invitee_calendar_label = account_label
+                    request_record.status = (
+                        "ready_for_matching"
+                        if request_record.owner_calendar_label and request_record.invitee_calendar_label
+                        else "awaiting_calendar_connection"
+                    )
+                    request_record.updated_at = datetime.utcnow()
+                    _audit_event(
+                        db,
+                        request_record.id,
+                        "calendar_connected",
+                        oauth_state.user_id,
+                        {"role": role, "calendar_label": account_label},
+                    )
+                    db.add(request_record)
+                    db.commit()
+
             # fetch and store busy for next 30 days
             try:
                 now_dt = datetime.utcnow()
@@ -1715,7 +1870,10 @@ async def oauth_callback(code: str = Query(...), state: str = Query(...)):
 
         # Redirect back to the account page so the new templates show connection status
         # and the user can immediately connect the second calendar slot if needed.
-        redirect_url = f"/account?account_label={account_label}&email={email}"
+        if oauth_state.request_id:
+            redirect_url = f"/requests/{oauth_state.request_id}?account_label={account_label}&email={email}"
+        else:
+            redirect_url = f"/account?account_label={account_label}&email={email}"
         return RedirectResponse(url=redirect_url)
 
     except Exception as e:
